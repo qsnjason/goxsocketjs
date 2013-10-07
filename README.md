@@ -1,9 +1,9 @@
 goxsocketjs
 ===
 
-Javascript MtGox V1 Websocket API client by Jason Ihde <jason@quantsig.net>. 
+Javascript MtGox Websocket API V1 client by Jason Ihde <jason@quantsig.net>. 
 
-This library implements low latency public and private API messaging methods via Websocket, using REST methods only where necessary within HTML5 browsers. It also provides a limited high level depth, account, and order abstraction for simplified market data and trading access.
+This client provides a limited high level depth, account, and order abstraction. It implements low latency public and private API messaging methods via Websocket, using REST methods only where necessary within HTML5 browsers.
 
 Private methods require a MtGox API key with sufficient privileges (account/trade).
 
@@ -16,8 +16,7 @@ https://github.com/Caligatio/jsSHA.git
 Low Level Methods
 ===
 
-The low level API provides basic I/O including authenticated access. Setting lowlevel to
-true will disable all high level methods.
+The low level API provides basic I/O including authenticated access. Setting lowlevel to true will disable all high level methods.
 
 Standard Usage
 ---
@@ -26,7 +25,7 @@ Standard Usage
 		lowlevel: true
 	};
 
-Optional: Multicurrency market data (only available in the low level API). Must be set prior to calling `connect()`.
+*Optional* Multicurrency market data (available in the low level API). Must be set prior to calling `connect()`.
 
 	config.connstr = 'wss://websocket.mtgox.com/mtgox?Currency=USD,EUR,JPY';
 
@@ -39,13 +38,13 @@ Create a new instance of the Mt. Gox Client.
 
 	var gox = new GoxClient(config);
 
-The on method assigns callbacks executed for specific events. On open can be set using the on method or passed as a function argument to `connect()`.
+The on method assigns callbacks executed for specific events. The onOpen can be set using the on method or passed as a function argument to `connect()`.
 
 	gox.on('open', function() {
 		console.log('connected');
 	});
 
-The on close event fires immediately upon a close event, reconnections should utilize a setTimeout to prevent rapid reconnections overwhelming the application or exchange.
+The onClose event fires immediately upon a close event, reconnects should utilize a setTimeout to prevent rapid reconnections overwhelming the application or exchange.
 
 	gox.on('close', function() {
 		setTimeout(function() {
@@ -53,19 +52,19 @@ The on close event fires immediately upon a close event, reconnections should ut
 		}, 30000);
 	});
 
-The on error event should either stop and alert the user or set a reconnection timeout.
+The onError event should either stop and alert the user or set a reconnection timeout.
 
 	gox.on('error', function(err) {
 		console.log('error', err);
 	});
 
-By default, inbound messages will arrive at onmessage in raw format when the low level API is in use. However, replies to authenticated messages sent with a callback will arrive at their supplied callback.
+Inbound messages will arrive at onMessage in raw format when the low level API is in use. However, replies to private messages sent with a callback will arrive at their supplied callback.
 
 	gox.on('message', function(m) {
 		console.log(m);
 	});
 
-Connect a configured client. A callback may be used to initialize the onconnect or pre-supplied as shown above.
+Connect a configured client. A callback may be used to initialize the onConnect or pre-supplied as shown above.
 
 	gox.connect(function() {
 		console.log('connected');
@@ -74,14 +73,14 @@ Connect a configured client. A callback may be used to initialize the onconnect 
 Unauthenticated Messages
 ---
 
-To send raw or unauthenticated messages.
+Send a raw or unauthenticated message.
 
 	gox.sendMessage({ op: 'mtgox.subscribe', type: 'ticker' });
 
 Authenticated Messages
 ---
 
-Authenticated messages are available when apikey and apisecret are configured. The sendPrivateMessage method signs and encodes a call message. Any reply will arrive at the assigned callback if supplied.
+Authenticated messages are available when apikey and apisecret are configured. The sendPrivateMessage method signs and encodes a MtGox call message. Any reply will arrive at the assigned callback if supplied.
 
 	gox.sendPrivateMessage(
 		{ call: 'BTCUSD/info' },
@@ -111,18 +110,18 @@ Default Currency is USD.
 
 	config.currency = 'USD';
 
-Depth cleanup occurs automatically following tick events. Setting depthcleanup (milliseconds) lower or higher will adjust the delay prior to executing the depth cleanup event. Note that accurate depth cannot be guaranteed because of limitations within the MtGox API.
+Depth cleanup occurs automatically following a delay on tick events. Setting depthcleanup (milliseconds) lower or higher will adjust the delay prior to executing the depth cleanup event. Note that accurate depth cannot be guaranteed because of limitations within the MtGox API.
 
 	config.depthcleanup = 1000;
 
-Depth refresh, when configured, will download market depth at the specified interval in minutes from the REST API.
+To cope with depth corruption, we refresh the depth table periodically. When configured, refreshdepth will download market depth at the specified interval in minutes from the REST API.
 
 	config.refreshdepth = 15;
 
 Account methods
 ---
 
-Set up onaccount callback if desired.
+Set up onAccount callback if desired.
 
 	gox.on('account', function(acct) {
 		console.log('received account update', acct);
@@ -134,13 +133,13 @@ Subscribe to account updates and provide query interface to current data.
 		console.log('received account', acct);
 	});
 
-Submit an account information request. The objects in the callback are parsed summary data and  the original response.
+Submit an account information request. The objects in the callback are parsed summary data and the original response.
 
 	gox.getAccountInfo(function(summary,orig) {
 		console.log('account summary', summary, 'original', orig);
 	});
-  
-Return cached current balance of BTC and fiat. They are available after receipt of getAccountInfo or subscribeAccount.
+
+Return cached current balance of BTC and fiat. They are available after receipt of `getAccountInfo()` or `subscribeAccount()`.
 
 	var btc = gox.getBalance('btc');
 	var fiat = gox.getBalance('fiat');
@@ -149,7 +148,7 @@ Return cached current balance of BTC and fiat. They are available after receipt 
 Market data methods
 ---
 
-All summary and query values returned are parsed integers. The MtGox websocket feed automatically subscribes all clients to the depth, ticker, and trades feeds. Client initialization requires a subscribeDepth call in order to load the depth from the exchange.
+All summary and query values returned are parsed integers. The MtGox websocket feed automatically subscribes all clients to the depth, ticker, and trades feeds. Client initialization requires a `subscribeDepth()` call in order to load the depth from the exchange.
 
 Set up depth emitter.
 

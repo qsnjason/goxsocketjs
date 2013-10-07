@@ -10,7 +10,6 @@ function GoxClient(conf) {
   last: { price: 0, volume: 0 },
   trades: [],
   orders: [],
-  attrib: [],
   pending: {},
   account: { balance: {} },
   connected: false,
@@ -33,9 +32,6 @@ function GoxClient(conf) {
 
  if ( c.conf.lowlevel ) {
   c.conf.lowlevel = true;
-  c.state.attrib.push('lowlevel');
- } else {
-  c.state.attrib.push('highlevel');
  }
 
  if ( ! c.conf.depthcleanup ) {
@@ -77,10 +73,6 @@ function GoxClient(conf) {
   return(c.state.btcdivisor * .01);
  };
 
- this.attrib = function() {
-  return(c.state.attrib);
- };
-
  this.sendMessage = function(msg) {
   var str = JSON.stringify(msg);
   c.socket.send(str);
@@ -88,7 +80,6 @@ function GoxClient(conf) {
  };
 
  if ( c.conf.apikey && c.conf.apisecret ) {
-  c.state.attrib.push('authenticated');
   this.sendPrivateMessage = function(msg,cb) {
    var nonce, rid, keystr, req, reqstr, reqlist, sha, reqstr, sign, str;
    var bytes = [];
@@ -155,10 +146,10 @@ function GoxClient(conf) {
  this.connect = function(cb) {
   var messageSwitch, connstr, onopen;
 
-  if ( c.state.on.open ) {
-   onopen = c.state.on.open;
-  } else if ( cb ) {
+  if ( cb ) {
    onopen = cb;
+  } else if ( c.state.on.open ) {
+   onopen = c.state.on.open;
   }
 
   c.on('open', function() {
@@ -523,7 +514,9 @@ function GoxClient(conf) {
    var asks = depth.asks = {};
    var bids = depth.bids = {};
    var price, volume;
-   c.logger('received depth, size ' + alen + ' asks, ' + blen + ' bids');
+   if ( c.conf.debug ) {
+    c.logger('received depth, size ' + alen + ' asks, ' + blen + ' bids');
+   }
    for ( var i = 0; i < alen; i++ ) {
     price = bdata.asks[i].price_int;
     volume = parseInt(bdata.asks[i].amount_int, 10);
@@ -543,7 +536,9 @@ function GoxClient(conf) {
      c.getDepthAjax(function(d) {
       delete(c.state.refreshdepthtimeout);
       c.handleDepth(d);
-      c.logger('refreshed depth');
+      if ( c.conf.debug ) {
+       c.logger('refreshed depth');
+      }
       c.refreshDepth();
       return;
      });
