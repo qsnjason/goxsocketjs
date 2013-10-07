@@ -115,7 +115,7 @@ Depth cleanup operations occur automatically following tick events. Setting dept
 
 	config.depthcleanup = 1000;
 
-Depth refresh, when configured, will automatically sync market depth at the specified intervaldefined in minutes.
+Depth refresh, when configured, will sync market depth at the specified interval in minutes.
 
 	config.refreshdepth = 15;
 
