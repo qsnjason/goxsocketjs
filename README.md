@@ -197,12 +197,6 @@ Like the data API, all price and volume fields are integers.
 
 Request open orders.
 
-	gox.fetchOrders(function(list) {
-		console.log('fetchOrders', list);
-	}); 
- 
-Request open order list.
-
 	gox.getOrders(function(orders) {
 		console.log('orders', orders);
 	});
