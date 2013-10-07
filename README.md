@@ -1,36 +1,36 @@
 goxsocketjs
-===========
+===
 
 Javascript MtGox V1 Websocket API client by Jason Ihde <jason@quantsig.net>. 
 
-This library implements both public and private API messaging methods in a pure websocket, using REST methods only where necessary. It also provides a limited high level depth, account, and order abstraction for simplified trading access.
+This library implements public and private API messaging methods via an HTML5  a websocket, using REST methods only where necessary within HTML5 browsers. It also provides a limited high level depth, account, and order abstraction for simplified trading access.
 
-Private methods require a MtGox API key with sufficient privileges.
+Private methods require a MtGox API key with sufficient privileges (account/trade).
 
-This library relies on jQuery to retrieve data via Ajax methods where unavailable via the websocket.
+This library relies on jQuery to retrieve data via Ajax methods for loading depth and currency metadata.
 https://github.com/jquery/jquery
 
-Private methods also require the jsSHA library available at:
+Private methods also require the jsSHA library.
 https://github.com/Caligatio/jsSHA.git
 
 Low Level Methods
------------------
+===
 
 The low level API provides basic I/O including authenticated access. Setting lowlevel to
 true will disable all high level methods.
 
 Standard Usage
---------------
+---
 
 	var config = {
 		lowlevel: true
 	};
 
-Optional multicurrency market data (only available in the low level API). Must be set prior to calling `connect()`.
+Optional: Multicurrency market data (only available in the low level API). Must be set prior to calling `connect()`.
 
 	config.connstr = 'wss://websocket.mtgox.com/mtgox?Currency=USD,EUR,JPY';
 
-API key and secret are equired for private methods.
+API key and secret are required for private methods.
 
 	config.apikey = 'API Key ID';
 	config.apisecret = 'API Secret';
@@ -39,7 +39,7 @@ Create a new instance of the Mt. Gox Client.
 
 	var gox = new GoxClient(config);
 
-The on method assigns callbacks executed for specific events. OnOpen can be set using the on method or passed as a function argument to connect().
+The on method assigns callbacks executed for specific events. On open can be set using the on method or passed as a function argument to `connect()`.
 
 	gox.on('open', function() {
 		console.log('connected');
@@ -72,16 +72,16 @@ Connect a configured client. A callback may be used to initialize the onconnect 
 	});
 
 Unauthenticated Messages
-------------------------
+---
 
-For unauthenticated messages or to send raw messages, use sendMessage.
+To send raw or unauthenticated messages.
 
 	gox.sendMessage({ op: 'mtgox.subscribe', type: 'ticker' });
 
 Authenticated Messages
-======================
+---
 
-Authenticated messages are available when apikey and apisecret are configured. The sendPrivateMessage method signs and encodes a call message and maps any reply to the assigned callback if supplied.
+Authenticated messages are available when apikey and apisecret are configured. The sendPrivateMessage method signs and encodes a call message. Any reply will arrive at the assigned callback if supplied.
 
 	gox.sendPrivateMessage(
 		{ call: 'BTCUSD/info' },
@@ -91,14 +91,14 @@ Authenticated messages are available when apikey and apisecret are configured. T
 	);
 
 High Level Methods
-------------------
+===
 
 The high level API handles message switching, state, market data, and order management. All low level methods are available to the high level API.
 
-Note that the high level API can support only one currency per instance. To receive data for multiple currencies, either create an instance for each desired currency or use the low level API. A trading instance must use the currency defined for the MtGox trading account.
+Note that the high level API supports only one currency per instance. To receive data for multiple currencies, either create an instance for each desired currency or use the low level API. A trading instance must use the currency defined for the MtGox trading account.
 
 Configuration
--------------
+---
 
 Complete your low level setup using the below config and desired callbacks. Then continue using the high level methods. Note that the lowlevel option must either be absent or set false.
 
@@ -107,29 +107,20 @@ Complete your low level setup using the below config and desired callbacks. Then
 		apisecret: 'API Secret'
 	};
 
-Currency is required for the high level API. Default is USD.
+Default Currency is USD.
 
 	config.currency = 'USD';
 
-Depth cleanup operations occur automatically following tick events. Setting depthcleanup lower or higher will adjust the delay prior to executing the depth cleanup event. Note that accurate depth cannot be guaranteed because of limitations within the MtGox API.
+Depth cleanup occurs automatically following tick events. Setting depthcleanup (milliseconds) lower or higher will adjust the delay prior to executing the depth cleanup event. Note that accurate depth cannot be guaranteed because of limitations within the MtGox API.
 
 	config.depthcleanup = 1000;
 
-Depth refresh, when configured, will sync market depth at the specified interval in minutes.
+Depth refresh, when configured, will download market depth at the specified interval in minutes from the REST API.
 
 	config.refreshdepth = 15;
 
-Engine methods
---------------
-
-Get trading engine lag.
-
-	gox.getEngineLag(function(lag) {
-		console.log('received lag', lag);
-	});
-
 Account methods
----------------
+---
 
 Set up onaccount callback if desired.
 
@@ -156,7 +147,7 @@ Return cached current balance of BTC and fiat. They are available after receipt 
 	console.log('balances', 'btc', btc, 'fiat', fiat);
 
 Market data methods
--------------------
+---
 
 All summary and query values returned are parsed integers. The MtGox websocket feed automatically subscribes all clients to the depth, ticker, and trades feeds. Client initialization requires a subscribeDepth call in order to load the depth from the exchange.
 
@@ -191,7 +182,7 @@ Set up ticker emitter.
 	});
 
 Order management methods
-------------------------
+---
 
 Like the data API, all price and volume fields are integers.
 
@@ -226,6 +217,15 @@ Cancel an order.
 
 	gox.cancelOrder(order, function(ret) {
 		console.log('order cancel', ret);
+	});
+
+Engine methods
+---
+
+Get trading engine lag.
+
+	gox.getEngineLag(function(lag) {
+		console.log('received lag', lag);
 	});
 
 License
