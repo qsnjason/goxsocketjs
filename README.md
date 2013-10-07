@@ -3,7 +3,7 @@ goxsocketjs
 
 Javascript MtGox V1 Websocket API client by Jason Ihde <jason@quantsig.net>. 
 
-This library implements public and private API messaging methods via an HTML5  a websocket, using REST methods only where necessary within HTML5 browsers. It also provides a limited high level depth, account, and order abstraction for simplified trading access.
+This library implements low latency public and private API messaging methods via Websocket, using REST methods only where necessary within HTML5 browsers. It also provides a limited high level depth, account, and order abstraction for simplified market data and trading access.
 
 Private methods require a MtGox API key with sufficient privileges (account/trade).
 
