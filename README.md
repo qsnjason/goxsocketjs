@@ -5,12 +5,10 @@ Javascript MtGox Websocket API V1 client by Jason Ihde <jason@quantsig.net>.
 
 This client provides a limited high level depth, account, and order abstraction. It implements low latency public and private API messaging methods via Websocket, using REST methods only where necessary within HTML5 browsers.
 
-Private methods require a MtGox API key with sufficient privileges (account/trade).
-
-This library relies on jQuery to retrieve data via Ajax methods for loading depth and currency metadata.
+The high level methods available in this library require jQuery to retrieve data via Ajax methods for the loading of depth and currency metadata.
 https://github.com/jquery/jquery
 
-Private methods also require the jsSHA library.
+Private methods require a MtGox API key with sufficient privileges (account/trade) as well as the jsSHA library.
 https://github.com/Caligatio/jsSHA.git
 
 Low Level Methods
