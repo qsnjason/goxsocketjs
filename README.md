@@ -151,15 +151,20 @@ Return cached current balance of BTC and fiat. They are available after receipt 
 	var fiat = gox.getBalance('fiat');
 	console.log('balances', 'btc', btc, 'fiat', fiat);
 
-Get BTC unit divisor.
+Divisors and order size.
+---
+
+Internally and via the API, BTC units are maintained as satoshi values (int). It may be necessary to convert from satoshi values to human readable BTC values (or vice-versa) for presentation. The following two methods provide the divisors necessary for this conversion.
+
+BTC unit divisor.
 
 	gox.btcDivisor();
 
-Get Fiat unit divisor.
+Fiat unit divisor.
 
 	gox.fiatDivisor();
 
-Get minimum order size.
+MtGox has a minimum order size requirement. The minimum order size can be retrieved in satoshi.
 
 	gox.minimumOrder();
 
