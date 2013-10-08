@@ -168,6 +168,18 @@ Market data methods
 
 All summary and query values returned are parsed integers. The MtGox websocket feed automatically subscribes all clients to the depth, ticker, and trades feeds. Client initialization requires a `subscribeDepth()` call in order to load the depth from the exchange.
 
+Set up ticker emitter.
+
+	gox.on('ticker', function(summary,raw) {
+		console.log('ticker event', summary);
+	});
+
+Set up trades emitter.
+
+	gox.on('trade', function(summary,raw) {
+		console.log('trade event', summary);
+	});
+
 Set up depth emitter.
 
 	gox.on('depth', function(summary,raw) {
@@ -191,18 +203,6 @@ Query depth for long prices and volumes.
 Query depth for current approximate rate.
 
 	gox.getRate();
-
-Set up trades emitter.
-
-	gox.on('trade', function(summary,raw) {
-		console.log('trade event', summary);
-	});
-
-Set up ticker emitter.
-
-	gox.on('ticker', function(summary,raw) {
-		console.log('ticker event', summary);
-	});
 
 Order management methods
 ---
