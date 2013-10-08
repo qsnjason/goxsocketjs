@@ -44,6 +44,12 @@ The on method assigns callbacks executed for specific events. The onOpen can be 
 		console.log('connected');
 	});
 
+To enable the log emitter, create an onLog handler, and all log messages will be directed to the handler.
+
+	gox.on('log', function(log) {
+		console.log(log);
+	});
+
 The onClose event fires immediately upon a close event, reconnects should utilize a setTimeout to prevent rapid reconnections overwhelming the application or exchange.
 
 	gox.on('close', function() {
@@ -145,6 +151,18 @@ Return cached current balance of BTC and fiat. They are available after receipt 
 	var fiat = gox.getBalance('fiat');
 	console.log('balances', 'btc', btc, 'fiat', fiat);
 
+Get BTC unit divisor.
+
+	gox.btcDivisor();
+
+Get Fiat unit divisor.
+
+	gox.fiatDivisor();
+
+Get minimum order size.
+
+	gox.minimumOrder();
+
 Market data methods
 ---
 
@@ -156,17 +174,23 @@ Set up depth emitter.
 		console.log('depth event', summary);
 	});
 
-Download and subscribe to market depth and enable depth queries. Subscribing to depth also subscribes the instance to 'ticker' and 'trades' which are used to consolidate market depth.
+Download and subscribe to market depth and enable depth queries below. Subscribing to depth also subscribes the instance to 'ticker' and 'trades' which are used to consolidate market depth.
 
 	gox.subscribeDepth(function(depth) {
 		console.log('subscribeDepth', depth);
 	});
 
-Query depth for best price and volume. Available after subscription to depth is complete.
+Query depth for best price and volume.
 
-	var long = gox.getPrice('bid');
-	var short = gox.getPrice('ask');
-	console.log('long ' + long.price + '/' + long.volume, ', short ' + short.price + '/' + short.volume);
+	gox.getPrice('ask');
+
+Query depth for long prices and volumes.
+
+	gox.getPrices('bid');
+
+Query depth for current approximate rate.
+
+	gox.getRate();
 
 Set up trades emitter.
 
