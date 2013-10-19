@@ -200,7 +200,7 @@ function GoxClient(conf) {
    }
   };
   sock.onerror = function(err) {
-   c.logger(['socket error', JSON.stringify(err)]);
+   c.logerr(['socket error', JSON.stringify(err)]);
    c.state.connected = false;
    if ( c.state.on.error ) {
     c.state.on.error(err);
@@ -254,7 +254,7 @@ function GoxClient(conf) {
      return;
     break;
     case false:
-     c.logger(['error message', JSON.stringify(msg)]);
+     c.logerr(['error message', JSON.stringify(msg)]);
      return;
     break;
    }
@@ -368,7 +368,7 @@ function GoxClient(conf) {
        c.state.curdesctimeout = c.state.curdesctimeout + 30000;
       }
      }
-     c.logger(['failed to get currency description from exchange']);
+     c.logerr(['failed to get currency description from exchange']);
      setTimeout(function() {c.loadCurrencyDescription()}, c.state.curdesctimeout);
     }
     if ( cb ) {
@@ -683,15 +683,47 @@ function GoxClient(conf) {
    return(m);
   } catch (er) {
    console.trace();
-   c.logger(['failed to parse JSON', str]);
+   c.logerr(['failed to parse JSON', str]);
   }
  };
 
+ // Timestamp formatting for log output
+ this.epochToDateTimeStr = function(e) {
+  var ct = new Date();
+  ct.setTime(e);
+  var dt = {};
+  dt.year = ct.getUTCFullYear();
+  dt.month = ct.getUTCMonth();
+  dt.day = ct.getUTCDate();
+  dt.hour = ct.getUTCHours();
+  dt.minute = ct.getUTCMinutes();
+  dt.second = ct.getSeconds();
+  dt.month++;
+  if(dt.month <10) {
+   dt.month = "0" + dt.month;
+  }
+  if(dt.day <10) {
+   dt.day = "0" + dt.day;
+  }
+  if(dt.hour <10) {
+   dt.hour = "0" + dt.hour;
+  }
+  if(dt.minute <10) {
+   dt.minute = "0" + dt.minute;
+  }
+  if(dt.second <10) {
+   dt.second = "0" + dt.second;
+  }
+  var dts = dt.year + '-' + dt.month + '-' + dt.day + ' ' + dt.hour + ':' + dt.minute + ':' + dt.second;
+  return(dts);
+ };
+
+ // Create log
  this.makelog = function(msg,err) {
   var log = {};
   var cons;
   log.ts = new Date().getTime();
-  log.tstring = epochToDateTimeStr(log.ts);
+  log.tstring = c.epochToDateTimeStr(log.ts);
   log.source = 'mtgox';
 
   if ( Object.prototype.toString.call(msg) === '[object Array]' ) {
