@@ -3,7 +3,6 @@
 "use strict";
 function GoxClient(conf) {
  var c = this;
- var depth, ticker;
  c.state = {
   depth: { asks: {}, bids: {} },
   ticker: { bid: 0, ask: 0 },
@@ -18,6 +17,7 @@ function GoxClient(conf) {
   inputMessages: 0,
   outputMessages: 0,
  };
+ c.name = 'mtgox';
  c.state.nonce = (new Date()).getTime() * 1000;
 
  if ( conf ) {
@@ -52,9 +52,6 @@ function GoxClient(conf) {
  if ( c.conf.on ) {
   c.state.on = c.conf.on;
  }
-
- depth = c.state.depth;
- ticker = c.state.ticker;
 
  //Low level methods
  this.on = function(ev,cb) {
@@ -200,8 +197,6 @@ function GoxClient(conf) {
    }
   };
   sock.onerror = function(err) {
-   c.logerr(['socket error', JSON.stringify(err)]);
-   c.state.connected = false;
    if ( c.state.on.error ) {
     c.state.on.error(err);
    }
@@ -306,6 +301,7 @@ function GoxClient(conf) {
   };
  
   this.tickerMessage = function(m) {
+   var ticker = c.state.ticker;
    var bid, ask, d;
    if ( m.avg.currency !== c.conf.currency ) {
     return;
@@ -408,6 +404,7 @@ function GoxClient(conf) {
   };
  
   this.getRate = function() {
+   var ticker = c.state.ticker;
    var rate;
    if ( ticker.ask <= ticker.bid ) {
     rate = ticker.ask;
@@ -465,6 +462,7 @@ function GoxClient(conf) {
    var ask = c.getPrice('bid');
    var bid = c.getPrice('ask');
    var last = c.state.last.price;
+   var ticker = c.state.ticker;
    var crossed = [];
    var d, prices;
    if ( ticker.ask > 0 && ticker.bid > 0 && last > 0 ) {
@@ -719,19 +717,15 @@ function GoxClient(conf) {
  };
 
  // Create log
- this.makelog = function(msg,err) {
+ this.makeLog = function(msg,err) {
   var log = {};
-  var cons;
   log.ts = new Date().getTime();
-  log.tstring = c.epochToDateTimeStr(log.ts);
-  log.source = 'mtgox';
-
+  log.source = c.name;
   if ( Object.prototype.toString.call(msg) === '[object Array]' ) {
    log.message = msg.join(' ');
   } else {
    log.message = msg;
   }
-
   if ( err ) {
    log.error = true;
   } else {
@@ -740,21 +734,16 @@ function GoxClient(conf) {
   if ( c.state.on.log ) {
    c.state.on.log(log);
   } else {
-   cons = log.tstring + ' ' + log.source + ' ' + log.message;
-   console.log(cons);
+   console.log(tl.epochToDateTimeStr(log.ts) + ' ' + log.source + ' ' + log.message);
   }
  };
 
  this.logerr = function(log) {
-  c.makelog(log,true);
+  c.makeLog(log,true);
  };
  this.logger = function(log) {
-  c.makelog(log);
+  c.makeLog(log);
  };
 
  return(c);
 }
-if ( typeof exports == 'undefined' ) {
- var exports = this.mtgoxwebsocket = {};
-}
-exports.GoxClient = GoxClient;
