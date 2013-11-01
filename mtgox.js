@@ -67,7 +67,7 @@ function GoxClient(conf) {
  };
 
  this.minimumOrder = function() {
-  return(c.state.btcdivisor * .01);
+  return(c.state.btcdivisor * 0.01);
  };
 
  this.sendMessage = function(msg) {
@@ -78,7 +78,7 @@ function GoxClient(conf) {
 
  if ( c.conf.apikey && c.conf.apisecret ) {
   this.sendPrivateMessage = function(msg,cb) {
-   var nonce, rid, keystr, req, reqstr, reqlist, sha, reqstr, sign, str;
+   var nonce, rid, keystr, req, reqstr, reqlist, sha, sign, str;
    var bytes = [];
    c.state.nonce++;
    nonce = c.state.nonce;
@@ -125,7 +125,7 @@ function GoxClient(conf) {
   this.hasher = function(string) {
    var sha = new jsSHA(string, 'TEXT');
    return(sha.getHash('SHA-256','HEX'));
-  }
+  };
  }
 
  this.receiveResultMessage = function(message) {
@@ -365,7 +365,9 @@ function GoxClient(conf) {
       }
      }
      c.logerr(['failed to get currency description from exchange']);
-     setTimeout(function() {c.loadCurrencyDescription()}, c.state.curdesctimeout);
+     setTimeout(function() {
+      c.loadCurrencyDescription();
+     }, c.state.curdesctimeout);
     }
     if ( cb ) {
      cb();
@@ -520,13 +522,13 @@ function GoxClient(conf) {
     volume = parseInt(bdata.asks[i].amount_int, 10);
     asks[price] = volume;
    }
-   for ( var i = 0; i < blen; i++ ) {
+   for ( i=0; i<blen; i++ ) {
     price = parseInt(bdata.bids[i].price_int, 10);
     volume = parseInt(bdata.bids[i].amount_int, 10);
     bids[price] = volume;
    }
    return;
-  }
+  };
 
   this.refreshDepth = function() {
    if ( ! c.state.refreshdepthtimeout && c.conf.refreshdepth ) {
@@ -575,7 +577,7 @@ function GoxClient(conf) {
         c.sendPrivateMessage(
          { op: 'mtgox.subscribe', key: res.result },
          function(r) {
-          c.logger(['accountsub', JSON.stringify(r)])
+          c.logger(['accountsub', JSON.stringify(r)]);
          }
         );
         if ( cb ) {
@@ -658,7 +660,7 @@ function GoxClient(conf) {
    url: url,
    success: cb
   });
- }
+ };
 
  // Get currency description
  this.getCurrencyDescriptionAjax = function(cb) {
@@ -671,7 +673,7 @@ function GoxClient(conf) {
    url: url,
    success: cb
   });
- }
+ };
 
  // Parse inbound JSON safely
  this.parseJSON = function(str) {
@@ -734,7 +736,7 @@ function GoxClient(conf) {
   if ( c.state.on.log ) {
    c.state.on.log(log);
   } else {
-   console.log(tl.epochToDateTimeStr(log.ts) + ' ' + log.source + ' ' + log.message);
+   console.log(c.epochToDateTimeStr(log.ts) + ' ' + log.source + ' ' + log.message);
   }
  };
 
