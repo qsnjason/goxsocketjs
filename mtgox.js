@@ -1,40 +1,24 @@
 /*jshint globalstrict: true*/
 /*jshint browser: true*/
 "use strict";
-function QSNClient(conf) {
+function GoxClient(conf) {
  var c = this;
  c.state = {
-  account: {},
-  conf: {},
-  instrs: {},
-  data: {},
-  logs: [],
-  bbs: [],
-  onload: {},
-  onboot: null,
-  ondown: null,
-  onopen: null,
-  onquote: {},
-  onunsub: {},
+  depth: { asks: {}, bids: {} },
+  ticker: { bid: 0, ask: 0 },
+  last: { price: 0, volume: 0 },
+  trades: [],
+  orders: [],
+  pending: {},
+  account: { balance: {} },
+  connected: false,
   on: {},
-  recondelay: 10,
-  status: {
-   connecting: false,
-   booted: false,
-   conn: false,
-   auth: false,
-   upstream: false,
-   subscriber: false,
-   connects: 0,
-   input: 0,
-   output: 0,
-   quotes: 0,
-   resumes: 0,
-   pingreply: 0,
-   load: 0
-  }
+  btcdivisor: 100000000,
+  inputMessages: 0,
+  outputMessages: 0,
  };
- c.name = 'qsn client';
+ c.name = 'mtgox';
+ c.state.nonce = (new Date()).getTime() * 1000;
 
  if ( conf ) {
   c.conf = conf;
@@ -42,799 +26,653 @@ function QSNClient(conf) {
   c.conf = {};
  }
 
- if ( ! c.conf.gateway ) {
-  c.conf.gateway = 'eu.quantsig.net';
+ this.getState = function() {
+  return(c.state);
+ };
+
+ if ( c.conf.lowlevel ) {
+  c.conf.lowlevel = true;
  }
 
- if ( ! c.conf.cachehours ) {
-  c.conf.cachehours = 750;
- }
- if ( ! c.conf.cacheminutes ) {
-  c.conf.cacheminutes = 1440;
- }
- if ( ! c.conf.cacheseconds ) {
-  c.conf.cacheseconds = 600;
+ if ( ! c.conf.depthcleanup ) {
+  c.conf.depthcleanup = 1000;
  }
 
- this.getConf = function() {
-  return(c.state.conf);
- };
+ if ( ! c.conf.currency ) {
+  c.conf.currency = 'USD';
+ }
+ c.conf.currencystr = 'BTC' + c.conf.currency;
 
- this.getStatus = function() {
-  return(c.state.status);
- };
-
- this.getAccount = function() {
-  return(c.state.account);
- };
-
- this.getModels = function() {
-  return(c.state.instrs);
- };
-
- this.getData = function() {
-  return(c.state.data);
- };
-
- this.getBBS = function() {
-  return(c.state.bbs);
- };
-
- this.getLogs = function() {
-  return(c.state.logs);
- };
+ if ( c.conf.lowlevel && ! c.conf.connstr ) {
+  c.conf.connstr = 'wss://websocket.mtgox.com/mtgox?Currency=' + c.conf.currency;
+ } else if ( ! c.conf.connstr && ! c.conf.lowlevel ) {
+  c.conf.connstr = 'wss://websocket.mtgox.com/mtgox?Currency=' + c.conf.currency;
+ }
 
  if ( c.conf.on ) {
   c.state.on = c.conf.on;
  }
 
+ //Low level methods
  this.on = function(ev,cb) {
   c.state.on[ev] = cb;
  };
 
+ this.btcDivisor = function() {
+  return(c.state.btcdivisor);
+ };
+
+ this.fiatDivisor = function() {
+  return(c.state.price_divisor);
+ };
+
+ this.minimumOrder = function() {
+  return(c.state.btcdivisor * 0.01);
+ };
+
  this.sendMessage = function(msg) {
-  var str;
-  if ( c.state.socket && c.state.status.conn === true ) {
+  var str = JSON.stringify(msg);
+  c.socket.send(str);
+  c.state.outputMessages++;
+ };
+
+ if ( c.conf.apikey && c.conf.apisecret ) {
+  this.sendPrivateMessage = function(msg,cb) {
+   var nonce, rid, keystr, req, reqstr, reqlist, sha, sign, str;
+   var bytes = [];
+   c.state.nonce++;
+   nonce = c.state.nonce;
+   rid = c.hasher(nonce.toString());
+   msg.id = rid;
+   msg.nonce = nonce;
+
+   if ( ! msg.params ) {
+    msg.params = {};
+   }
    str = JSON.stringify(msg);
-   c.state.socket.send(str);
-   c.state.status.output++;
-  } else {
-   c.logerr('sendMessage: error, not connected');
-  }
- };
 
- this.receiveUpstream = function(msg) {
-  if ( msg && msg.body ) {
-   c.state.status.upstream = msg.body;
-   if ( c.state.on.upstream ) {
-    c.state.on.upstream(msg.body);
+   sha = new jsSHA(str,'TEXT');
+   keystr = c.conf.apikey.split('-').join('');
+   sign = sha.getHMAC(c.conf.apisecret, 'B64', 'SHA-512', 'B64');
+   bytes = atob(sign);
+   reqlist = [c.hex2a(keystr), bytes, str];
+   reqstr = btoa(reqlist.join(''));
+
+   req = {
+    op: 'call',
+    id: rid,
+    call: reqstr,
+    context: 'mtgox.com'
+   };
+
+   if ( cb ) {
+    c.state.pending[rid] = cb;
    }
-  }
- };
 
- this.connect_persist = function(cb) {
-  if ( ! cb ) {
-   c.logerr(['connect_persist: callback required']);
+   c.sendMessage(req);
    return;
-  } else {
-   if ( c.conf.username || c.conf.apikey ) {
-    c.state.onboot = function() {
-     delete(c.state.onboot);
-     cb();
-    };
-   } else {
-    c.state.onopen = function() {
-     delete(c.state.onopen);
-     cb();
-    };
-   }
-  }
-  c.state.status.persistent = true;
-  c.state.ondown = function(err) {
-   c.state.socket = null;
-   setTimeout(function() {
-    if ( c.state.recondelay < 300 ) {
-     c.state.recondelay = 10 + c.state.recondelay;
-    }
-    c.connect(function() {
-      c.startConn();
-    });
-   }, c.state.recondelay * 1000);
   };
-  c.connect(function() {
-   c.startConn();
-  });
- };
 
- this.startConn = function() {
-  if ( (c.conf.username && c.conf.password) || (c.conf.apikey && c.conf.apisecret) ) {
-   c.login();
-  } else {
-   if ( c.state.onopen ) {
-    c.state.onopen();
-   } 
+  // Extract bytes from HEX API Key
+  this.hex2a = function(hex) {
+   var str = '';
+   for (var i = 0; i < hex.length; i += 2) 
+    str += String.fromCharCode(parseInt(hex.substr(i, 2), 16)); 
+   return str;
+  };
+
+  // Return sha256 hex string
+  this.hasher = function(string) {
+   var sha = new jsSHA(string, 'TEXT');
+   return(sha.getHash('SHA-256','HEX'));
+  };
+ }
+
+ this.receiveResultMessage = function(message) {
+  if ( message.id && c.state.pending[message.id] ) {
+   c.state.pending[message.id](message);
+   delete(c.state.pending[message.id]);
+   return;
+  } else if ( c.conf.lowlevel && c.on.message ) {
+   c.on.message(message);
+   return;
   }
-  c.state.pinginterval = setInterval(function() {
-   c.sendPing();
-  }, 10000);
+  c.logger(['unknown result message', JSON.stringify(message)]);
  };
 
  this.connect = function(cb) {
-  var socket;
-  if ( c.state.status.connecting === true ) {
-   c.logerr(['connect: already connecting']);
-   return;
-  } else if ( c.state.status.conn === true ) {
-   c.logerr(['connect: already connected']);
-   return;
+  var messageSwitch, connstr, onopen;
+
+  if ( cb ) {
+   onopen = cb;
+  } else if ( c.state.on.open ) {
+   onopen = c.state.on.open;
   }
-  if ( c.conf.debug ) {
-   c.logger(['connect: opening ', c.conf.gateway]);
-  }
-  c.state.status.connecting = true;
-  if ( c.conf.gateway.match(/wss/) ) {
-   socket = new WebSocket(c.conf.gateway + '/quote');
-  } else {
-   socket = new WebSocket('wss://' + c.conf.gateway + '/quote');
-  }
-  socket.onmessage = c.messageSwitch;
-  socket.onopen = function(event) {
-   c.logger('connect: connected');
-   c.state.status.conn = true;
-   c.state.status.connecting = false;
-   if ( cb ) {
-    cb();
+
+  c.on('open', function() {
+   if ( onopen ) {
+    c.on('open', onopen);
+    if ( ! c.conf.lowlevel && ! c.state.ticker_channel ) {
+     c.loadCurrencyDescription(function() {
+      onopen();
+     });
+    } else {
+     onopen();
+    }
+   } else {
+    delete(c.state.on.open);
    }
+  });
+
+  if ( c.conf.lowlevel ) {
+   messageSwitch = function(msg) {
+    var message = c.parseJSON(msg.data);
+    if ( message.id && c.state.pending[message.id] ) {
+     c.receiveResultMessage(message);
+    } else {
+     if ( c.state.on.message ) {
+      c.state.on.message(message);
+     }
+    }
+   };
+  } else {
+   messageSwitch = c.messageSwitch;
+  }
+
+  c.logger(['connecting to', c.conf.connstr]);
+  var sock = new WebSocket(c.conf.connstr);
+  sock.onmessage = messageSwitch;
+  sock.onopen = function(event) {
+   c.logger('socket connected');
+   c.state.connected = true;
    if ( c.state.on.open ) {
     c.state.on.open();
    }
   };
-  socket.onclose = function() {
-   c.logger('connect: socket closed');
-   c.socketDown('close');
+  sock.onclose = function() {
+   c.logger('socket closed');
+   c.state.connected = false;
    if ( c.state.on.close ) {
     c.state.on.close();
    }
   };
-  socket.onerror = function(err) {
-   c.logger('connect: socket error');
+  sock.onerror = function(err) {
    if ( c.state.on.error ) {
     c.state.on.error(err);
    }
   };
-  c.state.status.connects++;
-  c.state.socket = socket;
+  c.socket = sock;
  };
 
- this.socketDown = function(src) {
-  c.state.status.conn = false;
-  c.state.status.auth = false;
-  c.state.status.upstream = false;
-  c.state.status.connecting = false;
-  clearInterval(c.state.pinginterval);
-  delete(c.state.pinginterval);
-  delete(c.state.socket);
-  if ( c.state.on.down ) {
-   c.state.on.down(src);
-  }
-  if ( c.state.ondown ) {
-   c.state.ondown(src);
-  }
- };
-
- this.receiveError = function(message) {
-  if ( c.state.on.error ) {
-   c.state.on.error(message.error);
-  } else {
-   c.logerr(['receiveError: QSN error message', message.error]);
-  }
- };
-
- this.receiveAccount = function(message) {
-  c.state.account = message.body;
-  if ( c.state.on.account ) {
-   c.state.on.account(message.body);
-  }
- };
-
- this.receiveSubscribe = function(m) {
-  if ( m.body.result.ok === false ) {
-   if ( c.state.onload[m.body.type + m.body.name]) {
-    c.state.onload[m.body.type + m.body.name](m.body);
-   }
-  }
- };
-
- this.receiveResume = function(m) {
-  if ( c.state.on.resume ) {
-   c.state.on.resume(m.body);
-  }
- };
-
- this.subscribe = function(want) {
-  var type, name, lcb, qcb, key, instr;
-  if ( ! want.type ) {
-   c.logerr('subscribe: instrument type required');
-   return;
-  } else if ( ! want.name ) {
-   c.logerr('subscribe: instrument name required');
-   return;
-  }
-  type = want.type;
-  name = want.name;
-  lcb = want.onload;
-  qcb = want.onquote;
-  key = type + name;
-  if ( c.state.instrs[type][name] ) {
-   if ( lcb ) {
-    c.state.onload[key] = lcb;
-   }
-   if ( qcb ) {
-    c.state.onquote[key] = qcb;
-   }
-   instr = c.state.instrs[type][name];
-   if ( c.conf.debug ) {
-    c.logger(['subscribe:', instr.type, instr.name]);
-   }
-   c.sendMessage({ type: 'sub', body: { type: instr.type, name: instr.name } });
-  } else {
-   c.logerr(['subscribe: cannot subscribe', type, name]);
-  }
- };
-
- this.unsubscribe = function(instr,cb) {
-  if ( ! instr ) {
-   c.logerr(['unsubscribe: no instrument']);
-   return;
-  }
-  var type = instr.type;
-  var name = instr.name;
-  var key = type + name;
-  if ( c.state.data[type][name] ) {
-   if ( c.conf.debug ) {
-    c.logger(['unsubscribe:', type, name]);
-   }
-   c.sendMessage({ type: 'unsub', body: { type: type, name: name } });
-   if ( cb ) {
-    c.state.onunsub[key] = cb;
-   }
-   if ( c.state.onquote[key] ) {
-    delete(c.state.onquote[key]);
-   }
-   if ( instr.secintid ) {
-    clearInterval(instr.secintid);
-    delete(instr.secintid);
-   }
-  } else {
-   c.logerr(['unsubscribe: not subscribed', name]);
-  }
- };
-
- this.receiveUnSubscribe = function(msg) {
-  var m = msg.body;
-  var key = m.type + m.name;
-  if ( m.result.ok === true ) {
-   c.logger(['unsubscribed from', m.type, m.name]);
-   delete(c.state.data[m.type][m.name]);
-   if ( c.state.onunsub[key] ) {
-    c.state.onunsub[key](m);
-    delete(c.state.onunsub[key]);
-   }
-  }
- };
-
- this.resume = function(type,name) {
-  var instr;
-  if ( c.state.instrs[type][name] ) {
-   instr = c.state.instrs[type][name];
-   if ( c.conf.debug ) {
-    c.logger(['resume:', instr.type,  instr.name]);
-   }
-   c.sendMessage({
-    type: 'res',
-    body: { type: instr.type, name: instr.name, last: instr.laste }
-   });
-  } else {
-   c.logerr(['resume: not subscribed', type, name]);
-  }
- };
-
- this.receiveInstr = function (message) {
-  var instr = message.body;
-  var key = instr.type + instr.name;
-  c.state.status.subscriber = true;
-  if ( instr.refresh && ! c.conf.noseconds ) {
-   instr.secintid = setInterval(function() {
-    if ( c.state.status.auth ) {
-     c.updateInstrSec(instr);
+ //High level methods
+ if ( ! c.conf.lowlevel ) {
+  this.subscribeDepth = function(cb) {
+   c.logger('subscribing to depth');
+   c.state.subscribeDepth = true;
+   c.getDepthAjax(function(d) {
+    c.handleDepth(d);
+    if ( cb ) {
+     cb(d);
     }
-   }, 1000);
-  }
-  c.state.data[instr.type][instr.name] = instr;
-  c.state.status.load++;
-  if ( c.conf.debug ) {
-   c.logger(['receiveInstr:',instr.type,instr.name]);
-  }
-  if ( c.state.onload[key] ) {
-   c.state.onload[key](instr);
-   delete(c.state.onload[key]);
-  } else if ( c.state.on.load ) {
-   c.state.on.load(instr);
-  }
- };
+    if ( c.conf.refreshdepth ) {
+     c.refreshDepth();
+    }
+    c.getDepth = function(side) {
+     return(c.state.depth[side]);
+    };
+   });
+  };
 
- this.receiveSysNotice = function(m) {
-  if ( m && m.body && m.body.value ) {
-   c.state.sysnotice = m.body.value;
-   if ( c.state.on.sysnotice ) {
-    c.state.on.sysnotice(m.body);
+  this.unsubscribeDepth = function() {
+   c.logger('unsubscribing from depth');
+   c.sendMessage({ op: 'unsubscribe', type: 'depth' });
+  };
+
+  this.unsubscribeTrades = function() {
+   c.logger('unsubscribing from trades');
+   c.sendMessage({ op: 'unsubscribe', type: 'trades' });
+  };
+
+  this.unsubscribeTicker = function() {
+   c.logger('unsubscribing from ticker');
+   c.sendMessage({ op: 'unsubscribe', type: 'ticker' });
+  };
+
+  this.receiveRemarkMessage = function(msg) {
+   if ( msg.id && c.state.pending[msg.id] ) {
+    c.state.pending[msg.id](msg);
+    return;
+   }
+   switch(msg.success) {
+    case true:
+     c.logger(['success message', msg.message]);
+     return;
+    break;
+    case false:
+     c.logerr(['error message', JSON.stringify(msg)]);
+     return;
+    break;
+   }
+   c.logger(['unknown remark message', JSON.stringify(msg)]);
+  };
+
+  this.messageSwitch = function(msg) {
+   var message = c.parseJSON(msg.data);
+   c.state.inputMessages++;
+   switch(message.op) {
+    case "remark":
+     c.receiveRemarkMessage(message);
+     return;
+    break;
+    case "private":
+     c.receivePrivateMessage(message);
+     return;
+    break;
+    case "result":
+     c.receiveResultMessage(message);
+     return;
+    break;
+   }
+   c.logger(['unknown websocket message', JSON.stringify(message)]);
+  };
+
+  this.receivePrivateMessage = function(message) {
+   if ( message.private ) {
+    switch ( message.private ) {
+     case "depth":
+      c.depthMessage(message.depth);
+      return;
+     break;
+     case "ticker":
+      c.tickerMessage(message.ticker);
+      return;
+     break;
+     case "trade":
+      c.tradeMessage(message.trade);
+      return;
+     break;
+     case "user_order":
+      c.userOrderMessage(message.user_order);
+      return;
+     break;
+    }
+   }
+   c.logger(['mtgox unknown private message', JSON.stringify(message)]);
+  };
+ 
+  this.tickerMessage = function(m) {
+   var ticker = c.state.ticker;
+   var bid, ask, d;
+   if ( m.avg.currency !== c.conf.currency ) {
+    return;
+   }
+   if ( m && m.buy && m.sell ) {
+    ticker.bid = parseInt(m.buy.value_int, 10);
+    ticker.ask = parseInt(m.sell.value_int, 10);
+   }
+   if ( c.state.subscribeDepth && ! c.state.depthCleanupTimer ) {
+    c.state.depthCleanupTimer = setTimeout(function() {
+     c.depthCleanup();
+    }, c.conf.depthcleanup);
+   }
+   if ( c.state.on.ticker ) {
+    c.state.on.ticker({ instr: m.avg.currency, bid: ticker.bid, ask: ticker.ask }, m);
+   }
+  };
+ 
+  this.tradeMessage = function(m) {
+   var trade;
+   if ( m.price_currency !== c.conf.currency ) {
+    return;
+   }
+   trade = {
+    volume: parseInt(m.amount_int, 10),
+    price: parseInt(m.price_int, 10),
+    type: m.properties,
+    currency: m.price_currency,
+    timestamp: m.tid
+   };
+   c.state.last.price = trade.price;
+   c.state.last.volume = trade.volume;
+   c.state.trades.push(trade);
+   if ( c.state.trades.length > 1000 ) {
+    c.state.trades.shift();
+   }
+   if ( c.state.subscribeDepth && ! c.state.depthCleanupTimer ) {
+    c.state.depthCleanupTimer = setTimeout(function() {
+     c.depthCleanup();
+    }, c.conf.depthcleanup);
+   }
+   if ( c.state.on.trade ) {
+    c.state.on.trade(trade,m);
+   }
+  };
+ 
+  this.userOrderMessage = function(m) {
+   if ( c.state.on.order ) {
+    c.state.on.order(m);
+   }
+  };
+
+  this.loadCurrencyDescription = function(cb) {
+   c.getCurrencyDescription(function(d) {
+    if ( ! c.state.price_divisor ) {
+     if ( ! c.state.curdesctimeout ) {
+      c.state.curdesctimeout = 30000;
+     } else {
+      if ( c.state.curdesctimeout < 300000 ) {
+       c.state.curdesctimeout = c.state.curdesctimeout + 30000;
+      }
+     }
+     c.logerr(['failed to get currency description from exchange']);
+     setTimeout(function() {
+      c.loadCurrencyDescription();
+     }, c.state.curdesctimeout);
+    }
+    if ( cb ) {
+     cb();
+    }
+   });
+  };
+ 
+  this.getCurrencyDescription = function(cb) {
+   c.getCurrencyDescriptionAjax(function(desc) {
+    if ( desc.return && desc.return.decimals ) {
+     c.state.ticker_channel = desc.return.ticker_channel;
+     c.state.depth_channel = desc.return.depth_channel;
+     c.state.price_divisor = Math.pow(10, parseInt(desc.return.decimals, 10));
+     if ( c.conf.debug ) {
+      c.logger(['price divisor set to ', c.state.price_divisor]);
+     }
+     if ( cb ) {
+      cb(desc);
+     }
+    } else {
+     if ( cb ) {
+      cb(null);
+     }
+    }
+   });
+  };
+
+  this.getPrices = function(side) {
+   var d = c.state.depth[side];
+   var prices = [];
+   Object.keys(d).forEach(function(p) {
+    prices.push(parseInt(p, 10));
+   });
+   prices.sort(function(a, b) { return(a - b); });
+   return(prices);
+  };
+ 
+  this.getRate = function() {
+   var ticker = c.state.ticker;
+   var rate;
+   if ( ticker.ask <= ticker.bid ) {
+    rate = ticker.ask;
    } else {
-    c.logger(['receiveSysNotice:',m.body.value]);
+    rate = (((ticker.ask - ticker.bid) / 2) + ticker.bid);
    }
-  }
- };
-
- this.receiveBoot = function(message) {
-  var m = message.body;
-  c.state.recondelay = 10;
-  if ( m.messages ) {
-   c.state.bbs = m.messages;
-  }
-  c.state.instrs = m.instrs;
-  c.state.countries = m.countries;
-  Object.keys(c.state.instrs).forEach(function(type) {
-   if ( ! c.state.data[type] ) {
-    c.state.data[type] = {};
-   }
-  });
-  c.state.conf = m.conf;
-  c.state.service = m.service;
-  c.state.status.upstream = m.upstream;
-  c.state.btcprice = m.btcprice;
-  c.state.serviceprice = m.serviceprice;
-  if ( m.sysnotice ) {
-   c.receiveSysNotice({ body: { value: m.sysnotice.value } });
-  }
-  if ( c.state.status.booted === true ) {
-   Object.keys(c.state.data).forEach(function(type) {
-    Object.keys(c.state.data[type]).forEach(function(name) {
-     c.resume(type,name);
-     c.state.status.resume++;
-    });
-   });
-  } else {
-   if ( c.state.onboot ) {
-    c.state.onboot();
-   }
-  }
-  if ( c.state.on.boot ) {
-   c.state.on.boot(m);
-  }
-  c.state.status.booted = true;
- };
-
- // Instrument maintenance methods
- this.updateInstrSec = function(instr) {
-  var s = instr.seconds;
-  var df = c.state.conf.datafields[instr.type];
-  var m = instr.minutes;
-  var d = new Date();
-  var e = d.getTime();
-  var hh = d.getUTCHours();
-  var mm = d.getUTCMinutes();
-  var ss = d.getUTCSeconds();
-  var ct = (hh * 3600) + (mm * 60) + ss;
-  var midx = instr.minutes.dateminute.length - 1;
-  var fo, i;
-  s.epoch.push(e);
-  s.time.push(ct);
-  for ( i=0; i < df.length; i++ ) {
-   fo = df[i];
-   if ( fo.name !== 'epoch' && fo.name !== 'time' ) {
-    s[fo.name].push(m[fo.name][midx]);
-   }
-  }
-  if(s.time.length > c.conf.cacheseconds) {
-   for ( i=0; i < df.length; i++ ) {
-    fo = df[i];
-    s[fo.name].shift();
-   }
-  }
- };
-
- this.receiveQuote = function(message) {
-  var body = message.body;
-  var data = body.data;
-  var min = data.min;
-  var instr = c.state.data[body.type][body.name];
-  if ( ! instr ) {
-   return;
-  }
-  c.state.status.quotes++;
-  if ( instr.quotes ) {
-   instr.quotes++;
-  } else {
-   instr.quotes = 1;
-  }
-  var df = c.state.conf.datafields[instr.type];
-  var dfl = df.length;
-  var key = body.type + body.name;
-  var fo, fld, i, q = { type: body.type, name: body.name };
-  for ( i=0; i<dfl; i++ ) {
-   fo = df[i];
-   if ( fo.type === 'int' ) {
-    min[i] = parseInt(min[i], 10);
-   } else if ( fo.type === 'float' ) {
-    min[i] = parseFloat(min[i]);
-   }
-   q[fo.name] = min[i];
-  }
-  c.updateInstrData(instr,data);
-  if ( c.state.onquote[key] ) {
-   c.state.onquote[key](instr,q);
-  } else if ( c.state.on.quote ) {
-   c.state.on.quote(instr,q);
-  }
-  return(true);
- };
- this.updateInstrData = function(instr,data) {
-  var minutes = instr.minutes;
-  var hours = instr.hours;
-  var min = data.min;
-  var df = c.state.conf.datafields[instr.type];
-  var dfl = df.length;
-  var hfl = c.matchValueAH(df, 'datehour');
-  var cfl = c.matchValueAH(df, 'dateminute');
-  var mx = c.matchValue(minutes.dateminute,min[cfl]);
-  var d = new Date();
-  var fo, fld, i, mlen, hlen, lmin, hx;
-  instr.laste = d.getTime();
-  if ( mx ) {
-   for ( i=0; i<dfl; i++ ) {
-    fo = df[i];
-    minutes[fo.name][mx] = min[i];
-   }
-  } else {
-   for ( i=0; i<dfl; i++ ) {
-    fo = df[i];
-    minutes[fo.name].push(min[i]);
-   }
-  }
-  mlen = minutes.dateminute.length;
-  if ( mlen > c.conf.cacheminutes ) {
-   for ( i=0; i<dfl; i++ ) {
-    fo = df[i];
-    minutes[fo.name].shift();
-   }
-  }
-  if ( instr.type === 'net' ) {
-   mx = minutes.dateminute.length - 1;
-   instr.aclose = minutes.actual[mx];
-   instr.oclose = minutes.output[mx];
-   instr.dclose = minutes.diverg[mx];
-  }
-  hlen = hours.datehour.length - 1;
-  hx = c.matchValue(hours.datehour,minutes.datehour[lmin]);
-  if ( hx ) {
-   for ( i=0; i<dfl; i++ ) {
-    fo = df[i];
-    hours[fo.name][hx] = minutes[fo.name][lmin];
-   }
-  } else {
-   for ( i=0; i<dfl; i++ ) {
-    fo = df[i];
-    hours[fo.name].push(minutes[fo.name][lmin]);
-   }
-  }
-  if ( hlen > c.conf.cachehours ) {
-   for ( i=0; i<dfl; i++ ) {
-    fo = df[i];
-    hours[fo.name].shift();
-   }
-  }
-  return(true);
- };
- this.receiveMinfo = function(message) {
-  var m = message.body;
-  var type = m.type;
-  var name = m.name;
-  var minfo = m.data;
-  var instr;
-  if ( c.conf.debug ) {
-   c.logger(['receiveMinfo:',type,name]);
-  }
-  if ( c.state.instrs[type][name] ) {
-   instr = c.state.instrs[type][name];
-   Object.keys(minfo).forEach(function(fld) {
-    c.state.instrs[type][name][fld] = minfo[fld];
-   });
-  }
-  if ( c.state.data[type][name] ) {
-   instr = c.state.data[type][name];
-   Object.keys(minfo).forEach(function(fld) {
-    instr[fld] = minfo[fld];
-   });
-  }
-  if ( c.state.on.minfo ) {
-   c.state.on.minfo(m);
-  }
- };
-
- // BBS Messaging
- this.sendBBS = function(m) {
-  if ( c.state.status.auth !== true ) {
-   c.logerr('sendBBS: must be logged in.');
-   return false;
-  }
-  if (m===null || m==="") {
-   c.logerr('sendBBS: no message submitted.');
-   return;
-  }
-  var msg = {
-   type: 'usermessage',
-   body: {
-    message: m
+   return(rate / c.state.price_divisor);
+  };
+ 
+  this.getPrice = function(side) {
+   var prices = c.getPrices(side + 's');
+   var d = c.state.depth[side + 's'];
+   var len = prices.length - 1;
+   if ( side === 'ask' ) {
+    return({ price: prices[0], volume: d[prices[0]] });
+   } else {
+    return({ price: prices[len], volume: d[prices[len]] });
    }
   };
-  c.sendMessage(msg);
- };
- this.receiveBBS = function(message) {
-  c.state.bbs.push(message.body);
-  if ( c.state.bbs.length > 300 ) {
-   c.state.bbs.shift();
-  }
-  if ( c.state.on.bbs ) {
-   c.state.on.bbs(message.body,c.state.bbs);
-  }
- };
-
- // Platform BTC price. Used for client pricing data.
- this.receiveSetBTCPrice = function(message) {
-  c.state.btcprice = message.body;
-  if ( c.state.on.btcprice ) {
-   c.state.on.btcprice(message.body);
-  }
- };
-
- // Log messages are sent from some services.
- this.receiveLog = function(message) {
-  if ( c.state.on.logmessage ) {
-   c.state.on.logmessage(message.body);
-  }
- };
-
- // RTT/Pong tracking
- this.receivePong = function(message) {
-  var t = new Date().getTime();
-  c.state.status.rtt = t - message.body.time;
-  c.state.status.pingattempt = 0;
-  c.state.status.pingreply = t;
- };
-
- // Change Replies 
- this.receiveChangeReply = function(message) {
-  var m = message.body;
-  if ( m.ok === true ) {
-   c.logger("receiveChangeReply: change " + m.type + " accepted.");
-  } else {
-   c.logerr("receiveChangeReply: change " + m.type + " not permitted, reason: " + m.reason + ".");
-  }
-  if ( c.state.on.changereply ) {
-   c.state.on.changereply(m);
-  }
- };
-
- // Inbound Message Switch
- this.messageSwitch = function(msg) {
-  var message = c.parseJSON(msg.data);
-  c.state.status.input++;
-  switch(message.type) {
-   case "quote":
-    c.receiveQuote(message);
-    return;
-   break;
-   case "pong":
-    c.receivePong(message);
-    return;
-   break;
-   case "boot":
-    c.receiveBoot(message);
-    return;
-   break;
-   case "load":
-    c.receiveInstr(message);
-    return;
-   break;
-   case "usermessage":
-    c.receiveBBS(message);
-    return;
-   break;
-   case "minfo":
-    c.receiveMinfo(message);
-    return;
-   break;
-   case "res":
-    c.receiveResume(message);
-    return;
-   break;
-   case "changereply":
-    c.receiveChangeReply(message);
-    return;
-   break;
-   case "login":
-    c.receiveLogin(message);
-    return;
-   break;
-   case "account":
-    c.receiveAccount(message);
-    return;
-   break;
-   case "apikey":
-    c.receiveApiKey(message);
-    return;
-   break;
-   case "error":
-    c.receiveError(message);
-    return;
-   break;
-   case "sub":
-    c.receiveSubscribe(message);
-    return;
-   break;
-   case "unsub":
-    c.receiveUnSubscribe(message);
-    return;
-   break;
-   case "setsysnotice":
-    c.receiveSysNotice(message);
-    return;
-   break;
-   case "upstream":
-    c.receiveUpstream(message);
-    return;
-   break;
-   case "setbtcprice":
-    c.receiveSetBTCPrice(message);
-    return;
-   break;
-   case "log":
-    c.receiveLog(message);
-    return;
-   break;
-   default:
-    if ( c.state.on.umessage ) {
-     c.state.on.umessage(message);
+ 
+  this.depthMessage = function(m) {
+   var price, volume;
+   var depth = c.state.depth;
+   if ( m.currency === c.conf.currency ) {
+    price = m.price_int;
+     volume = parseInt(m.volume_int, 10);
+    if ( m.type_str === 'ask' ) {
+     if ( depth.asks[price] ) {
+      depth.asks[price] = depth.asks[price] + volume;
+     } else {
+      depth.asks[price] = volume;
+     }
+     if ( depth.asks[price] <= 0 ) {
+      delete(depth.asks[price]);
+     }
     }
-    return;
-   break;
-  }
- };
-
- // Login methods
- this.login = function(cb) {
-  if ( conf.username && conf.password ) {
-   c.submitLogin(conf.username,conf.password);
-  } else if ( conf.apikey && conf.apisecret ) {
-   c.submitApiLogin(conf.apikey,conf.apisecret);
-  } else {
-   c.logerr('login: invalid credentials, not authenticating');
-  }
- };
- this.submitApiLogin = function(key,secret) {
-  var d = new Date();
-  var ts = d.getTime();
-  var tmp = c.hasher256(secret);
-  var hash = c.hasher256(tmp + ts.toString());
-  var msg = {
-   type: 'login',
-   body: {
-    key: key,
-    ts: ts,
-    hash: hash
+    if ( m.type_str === 'bid' ) {
+     if ( depth.bids[price] ) {
+      depth.bids[price] = depth.bids[price] + volume;
+     } else {
+      depth.bids[price] = volume;
+     }
+     if ( depth.bids[price] <= 0 ) {
+      delete(depth.bids[price]);
+     }
+    }
+    if ( c.state.on.depth ) {
+     c.state.on.depth({ instr: m.currency, price: price, volume: volume }, m);
+    }
    }
   };
-  c.sendMessage(msg);
- };
- this.submitLogin = function(user,pass) {
-  var tok = c.createToken(user,pass);
-  c.requestLogin(tok);
-  return(tok);
- };
- this.requestLogin = function(tok) {
-  var msg = {
-   type: 'login',
-   body: tok
-  };
-  c.sendMessage(msg);
- };
- this.receiveLogin = function(msg) {
-  switch(msg.ok) {
-   case true:
-    c.logger('receiveLogin: login successful');
-    c.state.status.auth = true;
-   break;
-   case false:
-    c.logerr('receiveLogin: login failed');
-    c.state.status.auth = false;
-   break;
-  }
-  if ( c.state.on.login ) {
-   c.state.on.login(c.state.status.auth);
-  }
-  return;
- };
- this.getApiKey = function(name,cb) {
-  if ( name && cb ) {
-   if ( ! c.state.on.apikey ) {
-    c.state.on.apikey = cb;
-    c.logger('getApiKey: requesting API Key');
-    c.sendMessage({
-     type: 'getapikey',
-     body: {
-      label: name
+ 
+  this.depthCleanup = function() {
+   var depth = c.state.depth;
+   var ask = c.getPrice('bid');
+   var bid = c.getPrice('ask');
+   var last = c.state.last.price;
+   var ticker = c.state.ticker;
+   var crossed = [];
+   var d, prices;
+   if ( ticker.ask > 0 && ticker.bid > 0 && last > 0 ) {
+    d = depth.asks;
+    if ( ! d[ticker.ask] && ticker.ask > 0 ) {
+     if ( c.conf.debug ) {
+      c.logger(['adding ticker ask to depth', ticker.ask]);
+     }
+     d[ticker.ask] = 1;
+    }
+    prices = c.getPrices('asks');
+    prices.forEach(function(price) {
+     if ( price < ticker.ask || price < (last - 1)) {
+      if ( c.conf.debug ) {
+       c.logger(['deleting bogus ask from depth', price]);
+      }
+      delete(d[price]);
      }
     });
-   } else {
-    c.logerr('getApiKey: only one outstanding getApiKey request permitted, call clearApiKeyRequest() to reset');
+    d = depth.bids;
+    if ( ! d[ticker.bids] && ticker.bid > 0 ) {
+     if ( c.conf.debug ) {
+      c.logger(['adding ticker bid to depth', ticker.bid]);
+     }
+     d[ticker.bid] = 1;
+    }
+    prices = c.getPrices('bids');
+    prices.forEach(function(price) {
+     if ( price > ticker.bid || price > (last + 1) ) {
+      if ( c.conf.debug ) {
+       c.logger(['deleting bogus bid from depth', price]);
+      }
+      delete(d[price]);
+     }
+    });
    }
-  } else {
-   c.logerr('getApiKey: key name and callback required');
-  }
- };
- this.clearApiKeyRequest = function() {
-  delete(c.state.on.apikey);
- };
- this.receiveApiKey = function(message) {
-  c.logger(['receiveApiKey: received API Key ID', message.body.key]);
-  if ( c.state.on.apikey ) {
-   c.state.on.apikey(message.body);
-  }
-  delete(c.state.on.apikey);
- };
-
- //
- // Utility functions below
- //
-
- // Token creation
- this.createToken = function(user,pass) {
-  var d = new Date();
-  var ts = d.getTime();
-  var token = {
-   user: user,
-   ts: ts
+   if ( c.state.depthCleanupTimer ) {
+    delete(c.state.depthCleanupTimer);
+   }
   };
-  var tmp = c.hasher256(pass);
-  token.hash = c.hasher256(tmp + ts.toString());
-  return(token);
- };
- // RTT/Conn detection
- this.sendPing = function() {
-  if ( c.state.status.conn === false ) {
-   return;
-  }
-  if ( ! c.state.status.pingattempt ) {
-   c.state.status.pingattempt = 0;
-  }
-  var t = new Date().getTime();
-  var msg = {
-   type: "ping",
-   time: t
-  };
-  if ( c.state.status.pingattempt > 1 ) {
-   c.state.status.pingattempt++;
-   c.sendMessage(msg);
-   if ( c.state.status.pingattempt > 10 ) {
-    c.logger("sendPing: last reply " + c.epochToDateTimeStr(c.state.status.pingreply) + ' UTC');
-    c.socketDown();
-    c.state.status.pingattempt = 0;
+
+  this.handleDepth = function(d) {
+   var bdata = d['return'];
+   var alen = bdata.asks.length;
+   var blen = bdata.bids.length;
+   var depth = c.state.depth;
+   var asks = depth.asks = {};
+   var bids = depth.bids = {};
+   var price, volume;
+   if ( c.conf.debug ) {
+    c.logger('received depth, size ' + alen + ' asks, ' + blen + ' bids');
+   }
+   for ( var i = 0; i < alen; i++ ) {
+    price = bdata.asks[i].price_int;
+    volume = parseInt(bdata.asks[i].amount_int, 10);
+    asks[price] = volume;
+   }
+   for ( i=0; i<blen; i++ ) {
+    price = parseInt(bdata.bids[i].price_int, 10);
+    volume = parseInt(bdata.bids[i].amount_int, 10);
+    bids[price] = volume;
    }
    return;
-  } else {
-   c.state.status.pingattempt++;
-   c.sendMessage(msg);
-   return;
+  };
+
+  this.refreshDepth = function() {
+   if ( ! c.state.refreshdepthtimeout && c.conf.refreshdepth ) {
+    c.state.refreshdepthtimeout = setTimeout(function() {
+     c.getDepthAjax(function(d) {
+      delete(c.state.refreshdepthtimeout);
+      c.handleDepth(d);
+      if ( c.conf.debug ) {
+       c.logger('refreshed depth');
+      }
+      c.refreshDepth();
+      return;
+     });
+    }, (c.conf.refreshdepth * 1000 * 60));
+   }
+  };
+
+  if ( c.conf.apikey && c.conf.apisecret ) {
+   this.getAccount = function(cb) {
+    c.sendPrivateMessage(
+     { call: c.conf.currencystr + '/info' },
+     function(info) {
+      var res = info.result;
+      var wal = res.Wallets;
+      if ( res ) {
+       c.state.account.balance.btc = parseInt(wal.BTC.Balance.value_int, 10);
+       c.state.account.balance.fiat = parseInt(wal[c.conf.currency].Balance.value_int, 10);
+       c.state.account.wallets = wal;
+       c.state.account.rights = res.Rights;
+       c.state.account.volume = parseInt(res.Monthly_Volume.value_int, 10);
+      }
+      if ( cb ) {
+       cb(c.state.account,info);
+      }
+     }
+    );
+   };
+
+   this.subscribeAccount = function(cb) {
+    c.getAccount(function(account, info) {
+     c.sendPrivateMessage(
+      { call: c.conf.currencystr + '/idkey' },
+      function(res) {
+       if ( res.result ) {
+        c.logger('subscribing to account feed');
+        c.sendPrivateMessage(
+         { op: 'mtgox.subscribe', key: res.result },
+         function(r) {
+          c.logger(['accountsub', JSON.stringify(r)]);
+         }
+        );
+        if ( cb ) {
+         cb(res.result);
+        }
+       }
+      }
+     );
+    });
+   };
+ 
+   this.getEngineLag = function(cb) {
+    c.sendPrivateMessage(
+     { call: c.conf.currencystr + '/order/lag' },
+     function(res) {
+      if ( res.result ) {
+       if ( cb ) {
+        cb(res.result);
+       }
+      }
+     }
+    );
+   };
+ 
+   this.getBalance = function(type) {
+    return(c.state.account.balance[type]);
+   };
+ 
+   this.getOrders = function(cb) {
+    c.sendPrivateMessage({
+     call: c.conf.currencystr + '/orders' },
+     function(ret) {
+      if ( ret && ret.result && Object.prototype.toString.call( ret.result ) === '[object Array]' ) {
+       c.state.orders = ret.result;
+       if ( cb ) {
+        cb(ret.result);
+       }
+      } else {
+       if ( cb ) {
+        cb();
+       }
+      }
+     }
+    );
+   };
+ 
+   this.addOrder = function(order,cb) {
+    var params = {
+     type: order.type,
+     amount_int: order.amount
+    };
+    if ( order.price ) {
+     params.price_int = order.price;
+    }
+    c.sendPrivateMessage({
+     call: c.conf.currencystr + '/order/add',
+     params: params
+    }, cb);
+   };
+ 
+   this.cancelOrder = function(order,cb) {
+    c.sendPrivateMessage({
+     call: c.conf.currencystr + '/order/cancel',
+     params: {
+      oid: order.oid
+     }
+    }, cb);
+   };
+  } 
+ }
+
+ // Get market depth via ajax
+ this.getDepthAjax = function(cb) {
+  var url = 'http://data.mtgox.com/api/1/' + c.conf.currencystr + '/depth/fetch';
+  if ( c.conf.debug ) {
+   c.logger(['getting depth from', url]);
   }
+  $.ajax({
+   dataType: 'json',
+   url: url,
+   success: cb
+  });
+ };
+
+ // Get currency description
+ this.getCurrencyDescriptionAjax = function(cb) {
+  var url = 'http://data.mtgox.com/api/1/generic/currency?currency=' + c.conf.currency;
+  if ( c.conf.debug ) {
+   c.logger(['getting currency description from', url]);
+  }
+  $.ajax({
+   dataType: 'json',
+   url: url,
+   success: cb
+  });
  };
 
  // Parse inbound JSON safely
@@ -845,17 +683,11 @@ function QSNClient(conf) {
    return(m);
   } catch (er) {
    console.trace();
-   c.logerr(['parseJSON: failed to parse', str]);
+   c.logerr(['failed to parse JSON', str]);
   }
  };
 
- // Hasher required for login
- this.hasher256 = function(string) {
-  var sha = new jsSHA(string, 'TEXT');
-  return(sha.getHash('SHA-256','HEX'));
- };
-
- // Time formatter
+ // Timestamp formatting for log output
  this.epochToDateTimeStr = function(e) {
   var ct = new Date();
   ct.setTime(e);
@@ -886,10 +718,9 @@ function QSNClient(conf) {
   return(dts);
  };
 
- // Logging subsys
+ // Create log
  this.makeLog = function(msg,err) {
   var log = {};
-  var cons;
   log.ts = new Date().getTime();
   log.source = c.name;
   if ( Object.prototype.toString.call(msg) === '[object Array]' ) {
@@ -905,9 +736,10 @@ function QSNClient(conf) {
   if ( c.state.on.log ) {
    c.state.on.log(log);
   } else {
-   console.log(c.epochToDateTimeStr(log.ts) + ' UTC ' + log.source + ' ' + log.message);
+   console.log(c.epochToDateTimeStr(log.ts) + ' ' + log.source + ' ' + log.message);
   }
  };
+
  this.logerr = function(log) {
   c.makeLog(log,true);
  };
@@ -915,27 +747,5 @@ function QSNClient(conf) {
   c.makeLog(log);
  };
 
- // Matching functions for data lookup
- this.matchValue = function(a, val) {
-  var found;
-  a.some(function(el, index) {
-   if ( val === el ) {
-    found = index;
-    return true;
-   }
-  });
-  return found;
- };
- this.matchValueAH = function(a, val) {
-  var found;
-  a.some(function(el, index) {
-   if ( val === el.name ) {
-    found = index;
-    return true;
-   }
-  });
-  return found;
- };
- 
  return(c);
 }
