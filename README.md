@@ -1,5 +1,6 @@
 goxsocketjs
 ===
+.
 
 Javascript MtGox Websocket API V1 client by Quantitative Signals Network <support@quantsig.net>. 
 
