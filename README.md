@@ -241,8 +241,12 @@ Submit order to exchange.
  
 Cancel an order.
 
-	gox.cancelOrder(order, function(ret) {
-		console.log('order cancel', ret);
+	gox.addOrder(order, function(o) {
+  // the required `id` parameter will be created within the order object so it can be passed directly to cancel.
+ 	gox.cancelOrder(order, function(ret) {
+ 		console.log('order cancel', ret);
+ 	});
+		console.log('addOrder', ret);
 	});
 
 Engine methods
