@@ -3,7 +3,7 @@ goxsocketjs
 
 Javascript MtGox Websocket API V1 client by Quantitative Signals Network <support@quantsig.net>. 
 
-This client provides a high level depth, account, and order abstraction to the MtGox exchange within HTML5 browsers. It implements low latency public and private API methods via Websocket, using REST only where necessary.
+This client provides a high level depth, account, and order abstraction to the MtGox exchange within HTML5 browsers. It implements low latency public and private API methods via Websocket messaging, using REST only where necessary.
 
 High level methods require jQuery to retrieve data via Ajax for the loading of depth and currency metadata.
 https://github.com/jquery/jquery
