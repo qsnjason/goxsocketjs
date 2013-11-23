@@ -195,15 +195,15 @@ Download and subscribe to market depth and enable depth queries below. Subscribi
 		console.log('subscribeDepth', depth);
 	});
 
-Query depth for best price and volume.
+Query depth for best price and volume (cached).
 
 	gox.getPrice('ask');
 
-Query depth for long prices and volumes.
+Query depth for long prices and volumes (cached).
 
 	gox.getPrices('bid');
 
-Query depth for current approximate rate.
+Query depth for current approximate rate (cached).
 
 	gox.getRate();
 
@@ -242,10 +242,10 @@ Submit order to exchange.
 Cancel an order.
 
 	gox.addOrder(order, function(o) {
-  // The required `id` parameter will be created within the order object. It can be passed directly to cancel.
- 	gox.cancelOrder(order, function(ret) {
- 		console.log('order cancel', ret);
- 	});
+		// The required `id` parameter will be created within the order object. It can be passed directly to cancel.
+		gox.cancelOrder(order, function(ret) {
+			console.log('order cancel', ret);
+		});
 		console.log('addOrder', ret);
 	});
 
