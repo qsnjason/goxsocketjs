@@ -139,7 +139,7 @@ Subscribe to account updates and provide query interface to current data.
 
 Submit an account information request. The objects in the callback are parsed summary data and the original response.
 
-	gox.getAccountInfo(function(summary,orig) {
+	gox.getAccount(function(summary,orig) {
 		console.log('account summary', summary, 'original', orig);
 	});
 
