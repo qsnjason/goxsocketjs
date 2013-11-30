@@ -268,7 +268,7 @@ Get client state.
 	console.log(gox.getState());
 
 License
-=======
+===
 
 Copyright (c) 2013 Quantitative Signals Network <support@quantsig.net>
 
