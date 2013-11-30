@@ -265,6 +265,7 @@ Client State and Status
 ---
 
 Get client state.
+
 	console.log(gox.getState());
 
 License
