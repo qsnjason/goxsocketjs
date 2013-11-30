@@ -164,7 +164,7 @@ function GoxClient(conf) {
  };
 
  this.connect = function(cb) {
-  var messageSwitch, connstr, onopen;
+  var messageSwitch, connstr, onopen, sock, message;
 
   if ( cb ) {
    onopen = cb;
@@ -189,7 +189,7 @@ function GoxClient(conf) {
 
   if ( c.conf.lowlevel ) {
    messageSwitch = function(msg) {
-    var message = c.parseJSON(msg.data);
+    message = c.parseJSON(msg.data);
     if ( message.id && c.state.pending[message.id] ) {
      c.receiveResultMessage(message);
     } else {
@@ -203,7 +203,7 @@ function GoxClient(conf) {
   }
 
   c.logger(['connecting to', c.conf.connstr]);
-  var sock = new WebSocket(c.conf.connstr);
+  sock = new WebSocket(c.conf.connstr);
   sock.onmessage = messageSwitch;
   sock.onopen = function(event) {
    c.logger('socket connected');
@@ -596,7 +596,7 @@ function GoxClient(conf) {
       { call: c.conf.currencystr + '/idkey' },
       function(res) {
        if ( res.result ) {
-        c.logger('subscribing to account feed');
+        c.logger('subscribed to account feed');
         c.sendPrivateMessage(
          { op: 'mtgox.subscribe', key: res.result },
          function(r) {
@@ -705,9 +705,37 @@ function GoxClient(conf) {
    m = JSON.parse(str);
    return(m);
   } catch (er) {
-   console.trace();
-   c.logerr(['failed to parse JSON', str]);
+   c.logerr(['failed to parse inbound JSON', str]);
   }
+ };
+
+ // Loggin methods
+ this.makeLog = function(msg,err) {
+  var log = {};
+  log.ts = new Date().getTime();
+  log.source = c.name;
+  if ( Object.prototype.toString.call(msg) === '[object Array]' ) {
+   log.message = msg.join(' ');
+  } else {
+   log.message = msg;
+  }
+  if ( err ) {
+   log.error = true;
+  } else {
+   log.error = false;
+  }
+  if ( c.state.on.log ) {
+   c.state.on.log(log);
+  } else {
+   console.log(c.epochToDateTimeStr(log.ts) + ' ' + log.source + ' ' + log.message);
+  }
+ };
+
+ this.logerr = function(log) {
+  c.makeLog(log,true);
+ };
+ this.logger = function(log) {
+  c.makeLog(log);
  };
 
  // Timestamp formatting for log output
@@ -739,35 +767,6 @@ function GoxClient(conf) {
   }
   var dts = dt.year + '-' + dt.month + '-' + dt.day + ' ' + dt.hour + ':' + dt.minute + ':' + dt.second;
   return(dts);
- };
-
- // Create log
- this.makeLog = function(msg,err) {
-  var log = {};
-  log.ts = new Date().getTime();
-  log.source = c.name;
-  if ( Object.prototype.toString.call(msg) === '[object Array]' ) {
-   log.message = msg.join(' ');
-  } else {
-   log.message = msg;
-  }
-  if ( err ) {
-   log.error = true;
-  } else {
-   log.error = false;
-  }
-  if ( c.state.on.log ) {
-   c.state.on.log(log);
-  } else {
-   console.log(c.epochToDateTimeStr(log.ts) + ' ' + log.source + ' ' + log.message);
-  }
- };
-
- this.logerr = function(log) {
-  c.makeLog(log,true);
- };
- this.logger = function(log) {
-  c.makeLog(log);
  };
 
  return(c);

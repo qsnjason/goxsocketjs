@@ -197,11 +197,13 @@ Download and subscribe to market depth and enable depth queries below. Subscribi
 
 Query depth for best price and volume (cached).
 
-	gox.getPrice('ask');
+	gox.getPrice('ask'); // long
+	gox.getPrice('bid'); // short
 
 Query depth for long prices and volumes (cached).
 
-	gox.getPrices('bid');
+	gox.getPrices('ask'); // long
+	gox.getPrices('bid'); // short
 
 Query depth for current approximate rate (cached).
 
@@ -257,6 +259,12 @@ Get trading engine lag.
 	gox.getEngineLag(function(lag) {
 		console.log('received lag', lag);
 	});
+
+Client State and Status
+---
+
+Get client state.
+	console.log(gox.getState());
 
 License
 =======
