@@ -34,6 +34,7 @@ function GoxClient(conf) {
   orders: [],
   pending: {},
   account: { balance: {} },
+  account_channel: null,
   connected: false,
   on: {},
   btcdivisor: 100000000,
@@ -139,8 +140,9 @@ function GoxClient(conf) {
   // Extract bytes from HEX API Key
   this.hex2a = function(hex) {
    var str = '';
-   for (var i = 0; i < hex.length; i += 2) 
+   for (var i = 0; i < hex.length; i += 2) {
     str += String.fromCharCode(parseInt(hex.substr(i, 2), 16)); 
+   }
    return str;
   };
 
@@ -158,6 +160,12 @@ function GoxClient(conf) {
    return;
   } else if ( c.conf.lowlevel && c.on.message ) {
    c.on.message(message);
+   return;
+  } else if ( ! c.conf.lowlevel && message.result && message.result.Wallets ) {
+   c.readAccount(message.result);
+   if ( c.state.on.account ) {
+    c.state.on.account(c.state.account,message);
+   }
    return;
   }
   c.logger(['unknown result message', JSON.stringify(message)]);
@@ -264,6 +272,7 @@ function GoxClient(conf) {
   this.receiveRemarkMessage = function(msg) {
    if ( msg.id && c.state.pending[msg.id] ) {
     c.state.pending[msg.id](msg);
+    delete(c.state.pending[msg.id]);
     return;
    }
    switch(msg.success) {
@@ -318,11 +327,15 @@ function GoxClient(conf) {
       c.userOrderMessage(message.user_order);
       return;
      break;
+     case "wallet":
+      c.readWalletUpdate(message.wallet);
+      return;
+     break;
     }
    }
    c.logger(['mtgox unknown private message', JSON.stringify(message)]);
   };
- 
+
   this.tickerMessage = function(m) {
    var ticker = c.state.ticker;
    var bid, ask, d;
@@ -574,14 +587,9 @@ function GoxClient(conf) {
     c.sendPrivateMessage(
      { call: c.conf.currencystr + '/info' },
      function(info) {
-      var res = info.result;
-      var wal = res.Wallets;
-      if ( res ) {
-       c.state.account.balance.btc = parseInt(wal.BTC.Balance.value_int, 10);
-       c.state.account.balance.fiat = parseInt(wal[c.conf.currency].Balance.value_int, 10);
-       c.state.account.wallets = wal;
-       c.state.account.rights = res.Rights;
-       c.state.account.volume = parseInt(res.Monthly_Volume.value_int, 10);
+      var acc = info.result;
+      if ( acc ) {
+       c.readAccount(acc);
       }
       if ( cb ) {
        cb(c.state.account,info);
@@ -591,27 +599,71 @@ function GoxClient(conf) {
    };
 
    this.subscribeAccount = function(cb) {
-    c.getAccount(function(account, info) {
-     c.sendPrivateMessage(
-      { call: c.conf.currencystr + '/idkey' },
-      function(res) {
-       if ( res.result ) {
-        c.logger('subscribed to account feed');
-        c.sendPrivateMessage(
-         { op: 'mtgox.subscribe', key: res.result },
-         function(r) {
-          c.logger(['accountsub', JSON.stringify(r)]);
-         }
-        );
-        if ( cb ) {
-         cb(res.result);
-        }
-       }
+    if ( cb ) {
+     c.state.on.account = cb;
+    }
+    c.logger(['subscribing to account updates']);
+    c.sendPrivateMessage(
+     { call: 'private/idkey' },
+     function(res) {
+      if ( res.result ) {
+       c.state.account_channel = res.result;
+       c.sendMessage({ op: 'mtgox.subscribe', key: res.result });
+      } else {
+       c.logerr(['did not receive idKey']);
       }
-     );
-    });
+     }
+    );
+    c.state.subscribeAccountTimeout = setTimeout(function() {
+     c.subscribeAccount(cb);
+    }, 24 * 60 * 60 * 1000);
+
+    c.getBalance = function(type) {
+     return(c.state.account.balance[type]);
+    };
    };
  
+   this.readAccount = function(acc) {
+    var wal = acc.Wallets;
+    if ( wal ) {
+     c.state.account.wallets = wal;
+     c.state.account.balance.btc = parseInt(wal.BTC.Balance.value_int, 10);
+     c.state.account.balance.fiat = parseInt(wal[c.conf.currency].Balance.value_int, 10);
+     c.state.account.login = acc.Login;
+     c.state.account.fee = acc.Trade_Fee;
+     c.state.account.rights = acc.Rights;
+     c.state.account.volume = parseInt(acc.Monthly_Volume.value_int, 10);
+    } else {
+     c.logerr(['received invalid account update']);
+     return;
+    }
+   };
+
+   this.readWalletUpdate = function(wal) {
+    var bal = c.state.account.balance;
+    if ( wal && wal.amount && wal.op ) {
+     if ( wal.op === 'out' || wal.op === 'spent' || wal.op === 'withdraw' ) {
+      if ( wal.amount.currency && wal.amount.currency === c.conf.currency ) {
+       bal.fiat = bal.fiat - parseInt(wal.amount.value_int, 10);
+      } else if ( wal.amount.currency === 'BTC' ) {
+       bal.btc = bal.btc - parseInt(wal.amount.value_int, 10);
+      }
+     } else if ( wal.op === 'in' || wal.op === 'earned' || wal.op === 'deposit' ) {
+      if ( wal.amount.currency && wal.amount.currency === c.conf.currency ) {
+       bal.fiat = bal.fiat + parseInt(wal.amount.value_int, 10);
+      } else if ( wal.amount.currency === 'BTC' ) {
+       bal.btc = bal.btc + parseInt(wal.amount.value_int, 10);
+      }
+     }
+    } else {
+     c.logerr(['received invalid wallet update']);
+     return;
+    }
+    if ( c.state.on.account ) {
+     c.state.on.account(c.state.account,wal);
+    }
+   };
+
    this.getEngineLag = function(cb) {
     c.sendPrivateMessage(
      { call: c.conf.currencystr + '/order/lag' },
@@ -623,10 +675,6 @@ function GoxClient(conf) {
       }
      }
     );
-   };
- 
-   this.getBalance = function(type) {
-    return(c.state.account.balance[type]);
    };
  
    this.getOrders = function(cb) {

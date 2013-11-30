@@ -125,29 +125,30 @@ To cope with depth corruption, we refresh the depth table periodically. When con
 Account methods
 ---
 
-Set up onAccount callback if desired.
+Set up account emitter.
 
 	gox.on('account', function(acct) {
 		console.log('received account update', acct);
 	});
 
-Subscribe to account updates and provide query interface to current data.
+Subscribe to account channel. Account balances are maintained and will be provided in the `acct` argument. External reconciliation may wish to use the `orig` argument and handle the MtGox messages directly. Note that this method will self-invoke via `setTimeout()` in 24 hours as the key it must use will expire and thus requires refreshing.
 
-	gox.subscribeAccount(function(acct) {
-		console.log('received account', acct);
+	// Override onAccount emitter with callback argument
+	gox.subscribeAccount(function(acct,orig) {
+		console.log('account update', acct, 'orig', orig);
 	});
 
-Submit an account information request. The objects in the callback are parsed summary data and the original response.
-
-	gox.getAccount(function(summary,orig) {
-		console.log('account summary', summary, 'original', orig);
-	});
-
-Return cached current balance of BTC and fiat. They are available after receipt of `getAccountInfo()` or `subscribeAccount()`.
+Return current balance of BTC or fiat. Becomes available after `subscribeAccount()`.
 
 	var btc = gox.getBalance('btc');
 	var fiat = gox.getBalance('fiat');
 	console.log('balances', 'btc', btc, 'fiat', fiat);
+
+Singularly request account data. The arguments provided to the callback are loaded account and original response from the exchange. This method should not be necessary if `subscribeAccount()` is used.
+
+	gox.getAccount(function(acct,orig) {
+		console.log('account', acct, 'orig', orig);
+	});
 
 Divisors and order size.
 ---
