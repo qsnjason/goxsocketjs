@@ -1,7 +1,7 @@
 /*jshint globalstrict: true*/
 /*jshint browser: true*/
 /*!
-Copyright (c) 2013 Quantitative Signals Network <support@quantsig.net>
+Copyright (c) 2013 Quantitative Signals Network htps://www.quantsig.net
 
 The MIT License (MIT)
 
@@ -38,6 +38,7 @@ function GoxClient(conf) {
   connected: false,
   on: {},
   btcdivisor: 100000000,
+  minimum_order: 0.01,
   inputMessages: 0,
   outputMessages: 0,
  };
@@ -91,7 +92,7 @@ function GoxClient(conf) {
  };
 
  this.minimumOrder = function() {
-  return(c.state.btcdivisor * 0.01);
+  return(c.state.btcdivisor * c.state.minimum_order);
  };
 
  this.sendMessage = function(msg) {
@@ -786,6 +787,7 @@ function GoxClient(conf) {
    console.log(c.epochToDateTimeStr(log.ts) + ' ' + log.source + ' ' + log.message);
   }
  };
+
  this.logerr = function(log) {
   c.makeLog(log,true);
  };

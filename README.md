@@ -1,7 +1,7 @@
 goxsocketjs
 ===
 
-Javascript MtGox Websocket API V1 client by Quantitative Signals Network <support@quantsig.net>. 
+Javascript MtGox Websocket API V1 client by Quantitative Signals Network. https://www.quantsig.net
 
 This client provides a high level account, market data, and order abstraction to the MtGox exchange. It implements low latency public and private API methods via native Websocket messaging, using REST only where necessary within HTML5 browsers.
 
