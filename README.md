@@ -42,7 +42,7 @@ The `on` method assigns callbacks to be executed for specific events. The `open`
 		console.log('connected');
 	});
 
-To enable the `log` emitter, create a log handler, and all log messages will be directed to the handler.
+To enable the `log` emitter, create a log handler, and all log messages will be directed to the handler. This will also disable internal console logging by the client.
 
 	gox.on('log', function(log) {
 		console.log(log);
@@ -68,7 +68,7 @@ All inbound messages will arrive at the `message` event in raw format when the l
 		console.log(m);
 	});
 
-Connect a configured client. A callback may be used to initialize the onConnect or pre-supplied as shown above.
+Connect a configured client. A callback may be provided, which will set the `connect` event or pre-supplied as shown above.
 
 	gox.connect(function() {
 		console.log('connected');
@@ -125,7 +125,7 @@ To cope with depth corruption, we refresh the depth table periodically. When con
 Account methods
 ---
 
-Set up `account` emitter. It is called for every account update and the initial account loading.
+Set up `account` emitter. It will be called for every account update as well as the initial account loading.
 
 	gox.on('account', function(acct) {
 		console.log('received account update', acct);
@@ -140,9 +140,8 @@ Subscribe to account channel. Account balances are maintained and will be provid
 
 Return current balance of BTC or fiat. Available after `subscribeAccount()` receives the first account message.
 
-	var btc = gox.getBalance('btc');
-	var fiat = gox.getBalance('fiat');
-	console.log('balances', 'btc', btc, 'fiat', fiat);
+	gox.getBalance('btc');
+	gox.getBalance('fiat');
 
 Singularly request account data. Arguments passed to the callback are loaded account data and original response from the exchange. This method should not be necessary if `subscribeAccount()` is used.
 
@@ -170,7 +169,7 @@ MtGox has a minimum order size requirement. The minimum order size can be retrie
 Market data methods
 ---
 
-All summary and query values returned are parsed integers. The MtGox websocket feed automatically subscribes all clients to the depth, ticker, and trades feeds. Client initialization requires a `subscribeDepth()` call in order to load the depth from the exchange.
+All summary and query values returned are parsed integers. The MtGox websocket feed automatically subscribes all clients to the depth, ticker, and trades feeds. Client initialization requires a `subscribeDepth()` call in order to load the depth from the exchange via the REST API.
 
 Set up `ticker` emitter.
 
