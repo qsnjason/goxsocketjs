@@ -81,10 +81,10 @@ Send a raw or unauthenticated message.
 
 	gox.sendMessage({ op: 'mtgox.subscribe', type: 'ticker' });
 
-Authenticated Messages
+Private (Authenticated) Messages
 ---
 
-Authenticated messages are available when apikey and apisecret are configured. The sendPrivateMessage method signs and encodes a MtGox call message. Any reply will arrive at the assigned callback if supplied.
+Private messages are available when apikey and apisecret are configured. The sendPrivateMessage method signs and encodes an authenticated MtGox call message. Any reply will arrive at the assigned callback if supplied.
 
 	gox.sendPrivateMessage(
 		{ call: 'BTCUSD/info' },
@@ -96,9 +96,9 @@ Authenticated messages are available when apikey and apisecret are configured. T
 High Level Methods
 ===
 
-The high level API handles message switching, state, market data, and order management. All low level methods are available to the high level API.
+The high level API handles state, message switching, account status, market data, and order I/O. All low level methods are available to the high level API.
 
-Note that the high level API supports only one currency per instance. To receive data for multiple currencies, either create an instance for each desired currency or use the low level API. A trading instance must use the currency defined for the MtGox trading account.
+Note that the high level API supports only one fiat currency per instance. To receive data for multiple currencies, either create an instance for each desired currency or use the low level API. A trading instance must use a currency defined for the MtGox trading account.
 
 Configuration
 ---
@@ -110,7 +110,7 @@ Complete your low level setup using the below config and desired callbacks. Then
 		apisecret: 'API Secret'
 	};
 
-Default Currency is USD.
+Default fiat currency is USD.
 
 	config.currency = 'USD';
 
@@ -125,7 +125,7 @@ To cope with depth corruption, we refresh the depth table periodically. When con
 Account methods
 ---
 
-Set up account emitter. Will execute for every account update.
+Set up account emitter. It is called for every account update and the initial account loading.
 
 	gox.on('account', function(acct) {
 		console.log('received account update', acct);
@@ -264,9 +264,9 @@ Get trading engine lag.
 Client State and Status
 ---
 
-Get client state.
+Return internal state object containing account, market data, client status, callbacks, and running parameters.
 
-	console.log(gox.getState());
+	gox.getState();
 
 License
 ===
