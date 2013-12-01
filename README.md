@@ -125,26 +125,26 @@ To cope with depth corruption, we refresh the depth table periodically. When con
 Account methods
 ---
 
-Set up account emitter.
+Set up account emitter. Will execute for every account update.
 
 	gox.on('account', function(acct) {
 		console.log('received account update', acct);
 	});
 
-Subscribe to account channel. Account balances are maintained and will be provided in the `acct` argument. External reconciliation may wish to use the `orig` argument and handle the MtGox messages directly. Note that this method will self-invoke via `setTimeout()` in 24 hours as the key it must use will expire and thus requires refreshing.
+Subscribe to account channel. Account balances are maintained and will be provided in the `acct` argument. External reconciliation may wish to use the `orig` argument and handle the MtGox messages directly. Note that this method will self re-invoke in 24 hours via `setTimeout()` as the key it must use will expire and thus requires refreshing. Any changes to the account emitter will not be affected by re-invocation.
 
-	// Override onAccount emitter with callback argument
+	// Override account emitter with callback argument
 	gox.subscribeAccount(function(acct,orig) {
 		console.log('account update', acct, 'orig', orig);
 	});
 
-Return current balance of BTC or fiat. Becomes available after `subscribeAccount()`.
+Return current balance of BTC or fiat. Available after `subscribeAccount()` receives the first account message.
 
 	var btc = gox.getBalance('btc');
 	var fiat = gox.getBalance('fiat');
 	console.log('balances', 'btc', btc, 'fiat', fiat);
 
-Singularly request account data. The arguments provided to the callback are loaded account and original response from the exchange. This method should not be necessary if `subscribeAccount()` is used.
+Singularly request account data. Arguments passed to the callback are loaded account data and original response from the exchange. This method should not be necessary if `subscribeAccount()` is used.
 
 	gox.getAccount(function(acct,orig) {
 		console.log('account', acct, 'orig', orig);

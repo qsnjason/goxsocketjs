@@ -185,6 +185,9 @@ function GoxClient(conf) {
     c.on('open', onopen);
     if ( ! c.conf.lowlevel && ! c.state.ticker_channel ) {
      c.loadCurrencyDescription(function() {
+      if ( c.state.account_channel ) {
+       c.subscribeAccount();
+      }
       onopen();
      });
     } else {
@@ -614,12 +617,17 @@ function GoxClient(conf) {
       }
      }
     );
+    if ( c.state.subscribeAccountTimeout ) {
+     clearTimeout(c.state.subscribeAccountTimeout);
+    }
     c.state.subscribeAccountTimeout = setTimeout(function() {
      c.subscribeAccount(cb);
     }, 24 * 60 * 60 * 1000);
 
     c.getBalance = function(type) {
-     return(c.state.account.balance[type]);
+     if ( c.state.account.balance[type] ) {
+      return(c.state.account.balance[type]);
+     }
     };
    };
  
@@ -641,22 +649,22 @@ function GoxClient(conf) {
 
    this.readWalletUpdate = function(wal) {
     var bal = c.state.account.balance;
-    if ( wal && wal.amount && wal.op ) {
+    if ( wal && wal.op && wal.amount && wal.amount.currency ) {
      if ( wal.op === 'out' || wal.op === 'spent' || wal.op === 'withdraw' ) {
-      if ( wal.amount.currency && wal.amount.currency === c.conf.currency ) {
+      if ( wal.amount.currency === c.conf.currency ) {
        bal.fiat = bal.fiat - parseInt(wal.amount.value_int, 10);
       } else if ( wal.amount.currency === 'BTC' ) {
        bal.btc = bal.btc - parseInt(wal.amount.value_int, 10);
       }
      } else if ( wal.op === 'in' || wal.op === 'earned' || wal.op === 'deposit' ) {
-      if ( wal.amount.currency && wal.amount.currency === c.conf.currency ) {
+      if ( wal.amount.currency === c.conf.currency ) {
        bal.fiat = bal.fiat + parseInt(wal.amount.value_int, 10);
       } else if ( wal.amount.currency === 'BTC' ) {
        bal.btc = bal.btc + parseInt(wal.amount.value_int, 10);
       }
      }
     } else {
-     c.logerr(['received invalid wallet update']);
+     c.logerr(['received invalid or unknown wallet update']);
      return;
     }
     if ( c.state.on.account ) {
