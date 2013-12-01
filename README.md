@@ -36,19 +36,19 @@ Create a new instance of the Mt. Gox Client.
 
 	var gox = new GoxClient(config);
 
-The on method assigns callbacks executed for specific events. The onOpen can be set using the on method or passed as a function argument to `connect()`.
+The on method assigns callbacks executed for specific events. The open emitter can be set using the on method or passed as a function argument to `connect()`.
 
 	gox.on('open', function() {
 		console.log('connected');
 	});
 
-To enable the log emitter, create an onLog handler, and all log messages will be directed to the handler.
+To enable the log emitter, create a log handler, and all log messages will be directed to the handler.
 
 	gox.on('log', function(log) {
 		console.log(log);
 	});
 
-The onClose event fires immediately upon a close event, reconnects should utilize a setTimeout to prevent rapid reconnections overwhelming the application or exchange.
+The close event is emitted when the browser closes a socket. Reconnection should utilize a setTimeout to prevent potentially rapid reconnections overwhelming the application or exchange.
 
 	gox.on('close', function() {
 		setTimeout(function() {
@@ -56,13 +56,13 @@ The onClose event fires immediately upon a close event, reconnects should utiliz
 		}, 30000);
 	});
 
-The onError event may require an alert to the user. Do not set a reconnection from the error event as the close event will also emit when an error occurs.
+The error event may require an alert to the user. Do not set a reconnection from the error event as the close event will also emit when an error occurs.
 
 	gox.on('error', function(err) {
 		console.log('connection error', err);
 	});
 
-Inbound messages will arrive at onMessage in raw format when the low level API is in use. However, replies to private messages sent with a callback will arrive at their supplied callback.
+Inbound messages will arrive at the message event in raw format when the low level API is in use. However, replies to private messages sent with a callback will arrive at their supplied callback.
 
 	gox.on('message', function(m) {
 		console.log(m);
