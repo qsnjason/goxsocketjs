@@ -56,10 +56,10 @@ The onClose event fires immediately upon a close event, reconnects should utiliz
 		}, 30000);
 	});
 
-The onError event should either stop and alert the user or set a reconnection timeout.
+The onError event may require an alert to the user. Do not set a reconnection from the error event as the close event will also emit when an error occurs.
 
 	gox.on('error', function(err) {
-		console.log('error', err);
+		console.log('connection error', err);
 	});
 
 Inbound messages will arrive at onMessage in raw format when the low level API is in use. However, replies to private messages sent with a callback will arrive at their supplied callback.

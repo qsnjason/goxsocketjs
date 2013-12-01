@@ -765,7 +765,7 @@ function GoxClient(conf) {
   }
  };
 
- // Loggin methods
+ // Logging methods
  this.makeLog = function(msg,err) {
   var log = {};
   log.ts = new Date().getTime();
@@ -786,7 +786,6 @@ function GoxClient(conf) {
    console.log(c.epochToDateTimeStr(log.ts) + ' ' + log.source + ' ' + log.message);
   }
  };
-
  this.logerr = function(log) {
   c.makeLog(log,true);
  };
