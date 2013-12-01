@@ -3,7 +3,7 @@ goxsocketjs
 
 Javascript MtGox Websocket API V1 client by Quantitative Signals Network <support@quantsig.net>. 
 
-This client provides a high level depth, account, and order abstraction to the MtGox exchange. It implements low latency public and private API methods via Websocket messaging, using REST only where necessary within HTML5 browsers.
+This client provides a high level account, market data, and order abstraction to the MtGox exchange. It implements low latency public and private API methods via native Websocket messaging, using REST only where necessary within HTML5 browsers.
 
 High level methods require jQuery to retrieve data via Ajax for the loading of depth and currency metadata.
 https://github.com/jquery/jquery
@@ -32,23 +32,23 @@ API key and secret are required for private methods.
 	config.apikey = 'API Key ID';
 	config.apisecret = 'API Secret';
 
-Create a new instance of the Mt. Gox Client.
+Create a new instance of the MtGox Client.
 
 	var gox = new GoxClient(config);
 
-The on method assigns callbacks executed for specific events. The open emitter can be set using the on method or passed as a function argument to `connect()`.
+The `on` method assigns callbacks to be executed for specific events. The `open` event can be set using the `on` method or passed as a function argument to `connect()`.
 
 	gox.on('open', function() {
 		console.log('connected');
 	});
 
-To enable the log emitter, create a log handler, and all log messages will be directed to the handler.
+To enable the `log` emitter, create a log handler, and all log messages will be directed to the handler.
 
 	gox.on('log', function(log) {
 		console.log(log);
 	});
 
-The close event is emitted when the browser closes a socket. Reconnection should utilize a setTimeout to prevent potentially rapid reconnections overwhelming the application or exchange.
+The `close` event executes when the browser closes a socket. Reconnection should utilize a setTimeout to prevent potentially rapid reconnections overwhelming the application or exchange, which may result in a ban.
 
 	gox.on('close', function() {
 		setTimeout(function() {
@@ -56,13 +56,13 @@ The close event is emitted when the browser closes a socket. Reconnection should
 		}, 30000);
 	});
 
-The error event may require an alert to the user. Do not set a reconnection from the error event as the close event will also emit when an error occurs.
+The `error` event may require an alert to the user. Do not set a reconnection from the error event as the close event will also emit when an error occurs.
 
 	gox.on('error', function(err) {
 		console.log('connection error', err);
 	});
 
-Inbound messages will arrive at the message event in raw format when the low level API is in use. However, replies to private messages sent with a callback will arrive at their supplied callback.
+All inbound messages will arrive at the `message` event in raw format when the low level API is in use. However, replies to private messages sent with a callback will arrive only at their supplied callback.
 
 	gox.on('message', function(m) {
 		console.log(m);
@@ -103,7 +103,7 @@ Note that the high level API supports only one fiat currency per instance. To re
 Configuration
 ---
 
-Complete your low level setup using the below config and desired callbacks. Then continue using the high level methods. Note that the lowlevel option must either be absent or set false.
+Complete your low level setup using the below config and desired callbacks. Then continue using the high level methods. Note that the lowlevel option must either be absent or false.
 
 	var config = {
 		apikey: 'API Key ID',
@@ -125,7 +125,7 @@ To cope with depth corruption, we refresh the depth table periodically. When con
 Account methods
 ---
 
-Set up account emitter. It is called for every account update and the initial account loading.
+Set up `account` emitter. It is called for every account update and the initial account loading.
 
 	gox.on('account', function(acct) {
 		console.log('received account update', acct);
@@ -172,19 +172,19 @@ Market data methods
 
 All summary and query values returned are parsed integers. The MtGox websocket feed automatically subscribes all clients to the depth, ticker, and trades feeds. Client initialization requires a `subscribeDepth()` call in order to load the depth from the exchange.
 
-Set up ticker emitter.
+Set up `ticker` emitter.
 
 	gox.on('ticker', function(summary,raw) {
 		console.log('ticker event', summary);
 	});
 
-Set up trades emitter.
+Set up `trades` emitter.
 
 	gox.on('trade', function(summary,raw) {
 		console.log('trade event', summary);
 	});
 
-Set up depth emitter.
+Set up `depth` emitter.
 
 	gox.on('depth', function(summary,raw) {
 		console.log('depth event', summary);
