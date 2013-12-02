@@ -12,6 +12,7 @@ Private methods require a MtGox API key with sufficient privileges (account/trad
 https://github.com/Caligatio/jsSHA.git
 
 Copyright (c) 2013 Quantitative Signals Network. https://www.quantsig.net
+
 Distributed under the MIT license.
 
 Low Level Methods
