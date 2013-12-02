@@ -35,9 +35,9 @@ API key and secret are required for private methods.
 *Optional* Bulk configured event handlers.
 
 	config.on = {
-		open: function() { console.log('connected'); },
-		close: function() { console.log('closed'); },
-		log:	function(log) { console.log(log); }
+		log:   function(log) { console.log(log); },
+		open:  function() { console.log('connected'); },
+		close: function() { console.log('closed'); }
 	};
 
 Create a new instance of the MtGox Client.
