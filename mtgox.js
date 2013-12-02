@@ -26,6 +26,11 @@ THE SOFTWARE.
 "use strict";
 function GoxClient(conf) {
  var c = this;
+ c.name = 'mtgox';
+ c.conf = conf || {};
+ c.conf.depthcleanup = c.conf.depthcleanup || 1000;
+ c.conf.currency = c.conf.currency || 'USD';
+ c.conf.currencystr = 'BTC' + c.conf.currency;
  c.state = {
   depth: { asks: {}, bids: {} },
   ticker: { bid: 0, ask: 0 },
@@ -36,37 +41,18 @@ function GoxClient(conf) {
   account: { balance: {} },
   account_channel: null,
   connected: false,
-  on: {},
+  conf: c.conf,
   btcdivisor: 100000000,
   minimum_order: 0.01,
   inputMessages: 0,
   outputMessages: 0,
+  nonce: (new Date()).getTime() * 1000,
+  on: {}
  };
- c.name = 'mtgox';
- c.state.nonce = (new Date()).getTime() * 1000;
-
- if ( conf ) {
-  c.conf = conf;
- } else {
-  c.conf = {};
- }
 
  this.getState = function() {
   return(c.state);
  };
-
- if ( c.conf.lowlevel ) {
-  c.conf.lowlevel = true;
- }
-
- if ( ! c.conf.depthcleanup ) {
-  c.conf.depthcleanup = 1000;
- }
-
- if ( ! c.conf.currency ) {
-  c.conf.currency = 'USD';
- }
- c.conf.currencystr = 'BTC' + c.conf.currency;
 
  if ( c.conf.lowlevel && ! c.conf.connstr ) {
   c.conf.connstr = 'wss://websocket.mtgox.com/mtgox?Currency=' + c.conf.currency;
