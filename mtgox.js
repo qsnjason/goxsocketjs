@@ -1,7 +1,7 @@
 /*jshint globalstrict: true*/
 /*jshint browser: true*/
 /*!
-Copyright (c) 2013 Quantitative Signals Network htps://www.quantsig.net
+Copyright (c) 2013 Quantitative Signals Network. https://www.quantsig.net
 
 The MIT License (MIT)
 
@@ -96,20 +96,17 @@ function GoxClient(conf) {
  };
 
  this.sendMessage = function(msg) {
-  var str = JSON.stringify(msg);
-  c.socket.send(str);
+  c.socket.send(JSON.stringify(msg));
   c.state.outputMessages++;
  };
 
  if ( c.conf.apikey && c.conf.apisecret ) {
   this.sendPrivateMessage = function(msg,cb) {
-   var nonce, rid, keystr, req, reqstr, reqlist, sha, sign, str;
+   var keystr, req, reqstr, reqlist, sha, sign, str;
    var bytes = [];
    c.state.nonce++;
-   nonce = c.state.nonce;
-   rid = c.hasher(nonce.toString());
-   msg.id = rid;
-   msg.nonce = nonce;
+   msg.id = c.hasher(c.state.nonce.toString());
+   msg.nonce = c.state.nonce;
 
    if ( ! msg.params ) {
     msg.params = {};
@@ -125,13 +122,13 @@ function GoxClient(conf) {
 
    req = {
     op: 'call',
-    id: rid,
+    id: msg.id,
     call: reqstr,
     context: 'mtgox.com'
    };
 
    if ( cb ) {
-    c.state.pending[rid] = cb;
+    c.state.pending[msg.id] = cb;
    }
 
    c.sendMessage(req);
