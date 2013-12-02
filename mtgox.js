@@ -1,7 +1,10 @@
 /*jshint globalstrict: true*/
 /*jshint browser: true*/
 /*!
+QSN MtGox Javascript Websocket Client for HTML5 Browsers.
+
 Copyright (c) 2013 Quantitative Signals Network. https://www.quantsig.net
+Distributed under the MIT license.
 
 The MIT License (MIT)
 
