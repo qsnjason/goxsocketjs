@@ -143,7 +143,7 @@ Return current balance of BTC or fiat. Available after `subscribeAccount()` rece
 	gox.getBalance('btc');
 	gox.getBalance('fiat');
 
-Singularly request account data. Arguments passed to the callback are loaded account data and original response from the exchange. This method should not be necessary if `subscribeAccount()` is used.
+Singularly request account data. Arguments passed to the callback are loaded account data and original response from the exchange. This method should not be necessary if `subscribeAccount()` is used and the exchange is healthy.
 
 	gox.getAccount(function(acct,orig) {
 		console.log('account', acct, 'orig', orig);
