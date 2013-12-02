@@ -51,18 +51,14 @@ function GoxClient(conf) {
   inputMessages: 0,
   outputMessages: 0,
   nonce: (new Date()).getTime() * 1000,
-  on: {}
+  on: c.conf.on || {}
  };
 
+ //Low level methods
  this.getState = function() {
   return(c.state);
  };
 
- if ( c.conf.on ) {
-  c.state.on = c.conf.on;
- }
-
- //Low level methods
  this.on = function(ev,cb) {
   c.state.on[ev] = cb;
  };
@@ -86,8 +82,7 @@ function GoxClient(conf) {
 
  if ( c.conf.apikey && c.conf.apisecret ) {
   this.sendPrivateMessage = function(msg,cb) {
-   var keystr, req, reqstr, reqlist, sha, sign, str;
-   var bytes = [];
+   var bytes = [], keystr, req, reqstr, reqlist, sha, sign, str;
    c.state.nonce++;
    msg.id = c.hasher(c.state.nonce.toString());
    msg.nonce = c.state.nonce;
