@@ -32,17 +32,25 @@ API key and secret are required for private methods.
 	config.apikey = 'API Key ID';
 	config.apisecret = 'API Secret';
 
+*Optional* Bulk configured event handlers.
+
+	config.on = {
+		open: function() { console.log('connected'); },
+		close: function() { console.log('closed'); },
+		log:	function(log) { console.log(log); }
+	};
+
 Create a new instance of the MtGox Client.
 
 	var gox = new GoxClient(config);
 
-The `on` method assigns callbacks to be executed for specific events. The `open` event can be set using the `on` method or passed as a function argument to `connect()`.
+The `on` method assigns handlers to for specific events after instantiation. Here we use the `on` method to assign an `open` event handler.
 
 	gox.on('open', function() {
 		console.log('connected');
 	});
 
-To enable the `log` emitter, create a log handler, and all log messages will be directed to the handler. This will also disable internal console logging by the client.
+To configure the `log` emitter, create and assign a handler, and all log messages will be directed to the handler. This will also disable internal console logging by the client.
 
 	gox.on('log', function(log) {
 		console.log(log);
@@ -68,7 +76,7 @@ All inbound messages will arrive at the `message` event in raw format when the l
 		console.log(m);
 	});
 
-Connect a configured client. A callback may be provided, which will set the `connect` event or pre-supplied as shown above.
+Connect a configured client. A callback may be provided, which will set the `connect` event handler or pre-supplied as shown above.
 
 	gox.connect(function() {
 		console.log('connected');
@@ -103,7 +111,7 @@ Note that the high level API supports only one fiat currency per instance. To re
 Configuration
 ---
 
-Complete your low level setup using the below config and desired callbacks. Then continue using the high level methods. Note that the lowlevel option must either be absent or false.
+Complete your low level setup using the below config and desired handlers. Then continue using the high level methods. Note that the lowlevel option must either be absent or false.
 
 	var config = {
 		apikey: 'API Key ID',
@@ -125,15 +133,15 @@ To cope with depth corruption, we refresh the depth table periodically. When con
 Account methods
 ---
 
-Set up `account` emitter. It will be called for every account update as well as the initial account loading.
+Set up `account` handler. It will be called for every account update as well as the initial account loading.
 
 	gox.on('account', function(acct) {
 		console.log('received account update', acct);
 	});
 
-Subscribe to account channel. Account balances are maintained and will be provided in the `acct` argument. External reconciliation may wish to use the `orig` argument and handle the MtGox messages directly. Note that this method will self re-invoke in 24 hours via `setTimeout()` as the key it must use will expire and thus requires refreshing. Any changes to the account emitter will not be affected by re-invocation.
+Subscribe to account channel. Account balances are maintained and will be provided in the `acct` argument. External reconciliation may wish to use the `orig` argument and handle the MtGox messages directly. Note that this method will self re-invoke in 24 hours via `setTimeout()` as the key it must use will expire and thus requires refreshing. Any changes to the account handler will not be affected by re-invocation.
 
-	// Override account emitter with callback argument
+	// Override account handler with callback argument
 	gox.subscribeAccount(function(acct,orig) {
 		console.log('account update', acct, 'orig', orig);
 	});
@@ -171,19 +179,19 @@ Market data methods
 
 All summary and query values returned are parsed integers. The MtGox websocket feed automatically subscribes all clients to the depth, ticker, and trades feeds. Client initialization requires a `subscribeDepth()` call in order to load the depth from the exchange via the REST API.
 
-Set up `ticker` emitter.
+Set up `ticker` handler.
 
 	gox.on('ticker', function(summary,raw) {
 		console.log('ticker event', summary);
 	});
 
-Set up `trades` emitter.
+Set up `trades` handler.
 
 	gox.on('trade', function(summary,raw) {
 		console.log('trade event', summary);
 	});
 
-Set up `depth` emitter.
+Set up `depth` handler.
 
 	gox.on('depth', function(summary,raw) {
 		console.log('depth event', summary);
@@ -263,7 +271,7 @@ Get trading engine lag.
 Client State and Status
 ---
 
-Return internal state object containing account, market data, client status, callbacks, and running parameters.
+Return internal state object containing account, market data, client status, handlers, and running parameters.
 
 	gox.getState();
 
