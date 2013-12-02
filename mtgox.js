@@ -34,6 +34,7 @@ function GoxClient(conf) {
  c.conf.depthcleanup = c.conf.depthcleanup || 1000;
  c.conf.currency = c.conf.currency || 'USD';
  c.conf.currencystr = 'BTC' + c.conf.currency;
+ c.conf.connstr = c.conf.connstr || 'wss://websocket.mtgox.com/mtgox?Currency=' + c.conf.currency;
  c.state = {
   depth: { asks: {}, bids: {} },
   ticker: { bid: 0, ask: 0 },
@@ -56,12 +57,6 @@ function GoxClient(conf) {
  this.getState = function() {
   return(c.state);
  };
-
- if ( c.conf.lowlevel && ! c.conf.connstr ) {
-  c.conf.connstr = 'wss://websocket.mtgox.com/mtgox?Currency=' + c.conf.currency;
- } else if ( ! c.conf.connstr && ! c.conf.lowlevel ) {
-  c.conf.connstr = 'wss://websocket.mtgox.com/mtgox?Currency=' + c.conf.currency;
- }
 
  if ( c.conf.on ) {
   c.state.on = c.conf.on;

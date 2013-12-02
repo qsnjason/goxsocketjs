@@ -29,14 +29,14 @@ Standard Usage
 
 *Optional* Multicurrency market data (available in the low level API). Must be set prior to calling `connect()`.
 
-	config.connstr = 'wss://websocket.mtgox.com/mtgox?Currency=USD,EUR,JPY';
+	config.connstr = 'wss://websocket.mtgox.com/mtgox?Currency=USD,EUR,CNY';
 
 API key and secret are required for private methods.
 
 	config.apikey = 'API Key ID';
 	config.apisecret = 'API Secret';
 
-*Optional* Bulk configured event handlers.
+*Optional* Bulk loading event handlers. All handlers specified via the `on` method can be configured using `config.on`. It must be prepared before creating a new instance.
 
 	config.on = {
 		log:   function(log) { console.log(log); },
