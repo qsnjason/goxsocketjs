@@ -76,8 +76,20 @@ function GoxClient(conf) {
  };
 
  this.sendMessage = function(msg) {
-  c.socket.send(JSON.stringify(msg));
-  c.state.outputMessages++;
+  if ( msg ) {
+   if ( c.socket && c.state.connected ) {
+    try {
+     c.socket.send(JSON.stringify(msg));
+    } catch(er) {
+     c.logerr(['sendMessage: error, cannot send message',JSON.stringify(er)]);
+    }
+    c.state.outputMessages++;
+   } else {
+    c.logerr('sendMessage: error, not connected');
+   }
+  } else {
+   c.logerr('sendMessage: null message, not sending');
+  }
  };
 
  if ( c.conf.apikey && c.conf.apisecret ) {
