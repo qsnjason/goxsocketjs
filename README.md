@@ -48,7 +48,7 @@ Create a new instance of the MtGox Client.
 
 	var gox = new GoxClient(config);
 
-The `on` method assigns handlers to for specific events after instantiation. Here we use the `on` method to assign an `open` event handler.
+The `on` method assigns handlers to specific events after instantiation. Here we use the `on` method to assign an `open` event handler.
 
 	gox.on('open', function() {
 		console.log('connected');
