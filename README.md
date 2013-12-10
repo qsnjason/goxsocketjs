@@ -54,19 +54,19 @@ Node.js Configuration
 
 Install btoa via npm or otherwise.
 
- npm install btoa;
+	npm install btoa;
 
 Clone Minode. It provides a fast and compatible Websocket implementation within Node.js.
 
- git clone https://github.com/billywhizz/minode.git
+	git clone https://github.com/billywhizz/minode.git
 
 Specify Minode location. It will be auto-required by the client.
 
- config.minode = "./minode";
+	config.minode = "./minode";
 
 Load GoxClient library.
 
- require("./mtgox").GoxClient;
+	require("./mtgox").GoxClient;
 
 See `example/node.js` for an example node.js client.
 
