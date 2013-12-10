@@ -23,7 +23,7 @@ Distributed under the terms of the MIT license (below).
 Low Level Methods
 ===
 
-The low level API provides basic I/O including authenticated access. Setting lowlevel to true will disable all high level methods.
+The low level API provides basic I/O including signed private messages. Setting lowlevel to true will disable all high level methods.
 
 Standard Configuration
 ---
@@ -109,7 +109,7 @@ All inbound messages will arrive at the `message` event in raw format when the l
 		console.log(m);
 	});
 
-Connect a configured client. A callback may be provided, which will set the `connect` event handler or pre-supplied as shown above.
+Connect a configured client. A callback may be provided, which will set the `open` event handler to the callback.
 
 	gox.connect(function() {
 		console.log('connected');
@@ -118,7 +118,7 @@ Connect a configured client. A callback may be provided, which will set the `con
 Client State and Status
 ---
 
-Return internal state object containing account, market data, client status, handlers, and running parameters.
+Return internal state object containing account, market data, trade data, client status, handlers, and running parameters.
 
 	gox.getState();
 
@@ -138,10 +138,10 @@ Send a raw or unauthenticated message.
 
 	gox.sendMessage({ op: 'mtgox.subscribe', type: 'ticker' });
 
-Private (Authenticated) Messages
+Private (Signed) Messages
 ---
 
-Private messages are available when apikey and apisecret are configured. The sendPrivateMessage method signs and encodes an authenticated MtGox call message. Any reply will arrive at the assigned callback if supplied.
+Private messages are available when `config.apikey` and `config.apisecret` are set. The sendPrivateMessage method signs and encodes a MtGox call message. Any reply will arrive at the provided callback if supplied.
 
 	gox.sendPrivateMessage(
 		{ call: 'BTCUSD/info' },
@@ -226,7 +226,7 @@ MtGox has a minimum order size requirement. The minimum order size can be retrie
 Market data methods
 ---
 
-All summary and query values returned are parsed integers. The MtGox websocket feed automatically subscribes all clients to the depth, ticker, and trades feeds. Client initialization requires a `subscribeDepth()` call in order to load the depth from the exchange via the REST API.
+All summary and query values returned are parsed integers. The MtGox websocket feed automatically subscribes all clients to the depth, ticker, and trades feeds. Client initialization requires a `subscribeDepth()` call in order to load market depth from the exchange via the REST API.
 
 Receive `ticker` events.
 
@@ -246,7 +246,7 @@ Receive `depth` events.
 		console.log('depth event', summary);
 	});
 
-Download and subscribe to market depth and enable depth queries below. Subscribing to depth also subscribes the instance to 'ticker' and 'trades' which are used to consolidate market depth.
+Download and subscribe to market depth and enable depth queries. Subscribing to depth also subscribes the instance to 'ticker' and 'trades' which are used to consolidate market depth.
 
 	gox.subscribeDepth(function(depth) {
 		console.log('subscribeDepth', depth);
