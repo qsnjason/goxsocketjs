@@ -115,6 +115,22 @@ Connect a configured client. A callback may be provided, which will set the `con
 		console.log('connected');
 	});
 
+Client State and Status
+---
+
+Return internal state object containing account, market data, client status, handlers, and running parameters.
+
+	gox.getState();
+
+Exchange Engine
+---
+
+Get trading engine lag.
+
+	gox.getEngineLag(function(lag) {
+		console.log('received lag', lag);
+	});
+
 Unauthenticated Messages
 ---
 
@@ -193,7 +209,7 @@ Singularly request account data. Arguments passed to the callback are loaded acc
 Divisors and order size.
 ---
 
-Internally and via the API, BTC units are maintained as satoshi values (int). It may be necessary to convert from satoshi values to human readable BTC values (or vice-versa) for presentation. The following two methods provide the divisors necessary for this conversion.
+Internally and via the API, BTC units are maintained as Satoshi values (integer), while Fiat units are a fixed multiple unique for each currency (also integer). It may be necessary to convert from Satoshi/Fiat values to human readable BTC/Fiat values (or vice-versa) for presentation. The following methods provide the divisors necessary for this conversion.
 
 BTC unit divisor.
 
@@ -212,19 +228,19 @@ Market data methods
 
 All summary and query values returned are parsed integers. The MtGox websocket feed automatically subscribes all clients to the depth, ticker, and trades feeds. Client initialization requires a `subscribeDepth()` call in order to load the depth from the exchange via the REST API.
 
-Set up `ticker` handler.
+Receive `ticker` events.
 
 	gox.on('ticker', function(summary,raw) {
 		console.log('ticker event', summary);
 	});
 
-Set up `trades` handler.
+Receive `trades` events.
 
 	gox.on('trade', function(summary,raw) {
 		console.log('trade event', summary);
 	});
 
-Set up `depth` handler.
+Receive `depth` events.
 
 	gox.on('depth', function(summary,raw) {
 		console.log('depth event', summary);
@@ -236,17 +252,17 @@ Download and subscribe to market depth and enable depth queries below. Subscribi
 		console.log('subscribeDepth', depth);
 	});
 
-Query depth for best price and volume (cached).
+Query depth table for best price and volume.
 
 	gox.getPrice('ask'); // long
 	gox.getPrice('bid'); // short
 
-Query depth for long prices and volumes (cached).
+Query depth table for long prices and volumes.
 
 	gox.getPrices('ask'); // long
 	gox.getPrices('bid'); // short
 
-Query depth for current approximate rate (cached).
+Query ticker for current rate (approximate midpoint within the spread).
 
 	gox.getRate();
 
@@ -255,13 +271,13 @@ Order management methods
 
 Like the data API, all price and volume fields are integers.
 
-Request open orders.
+Request open orders from the exchange.
 
 	gox.getOrders(function(orders) {
 		console.log('orders', orders);
 	});
 
-Set up a new limit order. Valid types are bid or ask.
+Set up a new limit order. Valid types are bid or ask. All units are integers.
 
 	var order = {
 		type: 'bid',
@@ -291,22 +307,6 @@ Cancel an order.
 		});
 		console.log('addOrder', ret);
 	});
-
-Engine methods
----
-
-Get trading engine lag.
-
-	gox.getEngineLag(function(lag) {
-		console.log('received lag', lag);
-	});
-
-Client State and Status
----
-
-Return internal state object containing account, market data, client status, handlers, and running parameters.
-
-	gox.getState();
 
 License
 ===
