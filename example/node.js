@@ -1,5 +1,7 @@
 // Load QSN MtGox Client
-var GoxClient = require("../mtgox").GoxClient;
+var GoxClient, gox;
+
+GoxClient = require("../mtgox").GoxClient;
 
 // Prepare config
 var config = {
@@ -15,14 +17,14 @@ var config = {
   close: function() {
    console.log('closed');
    setTimeout(function() {
-    connect();
+    gox.connect();
    }, 5000);
   }
  }
 };
 
 // Instance.
-var gox = new GoxClient(config);
+gox = new GoxClient(config);
 
 function connect() {
  gox.connect(function() {

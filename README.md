@@ -3,16 +3,16 @@ goxsocketjs
 
 QSN MtGox Javascript Websocket Client for Node.js and HTML5 Browsers.
 
-This client provides a high level account, market data, and order abstraction to the MtGox exchange. It implements low latency public and private API methods via native Websocket messaging, using REST only where necessary within HTML5 browsers.
+This client provides a high level account, market data, and order abstraction to the MtGox exchange. It implements low latency public and private API methods via native Websocket messaging, using REST only where necessary.
 
 High level methods within the browser require jQuery to retrieve data via Ajax for the loading of depth and currency metadata.
 https://github.com/jquery/jquery
 
 Private methods require a MtGox API key with sufficient privileges (account/trade).
 
-A browser using private methods will require the jsSHA library. https://github.com/Caligatio/jsSHA
+A browser using private methods will also require the jsSHA library. https://github.com/Caligatio/jsSHA
 
-Node.js requires the Minode library (https://github.com/billywhizz/minode).
+Node.js support requires the Minode library (https://github.com/billywhizz/minode).
 
 For private methods using Node.js, btoa is also required (installable via npm).
 
@@ -68,7 +68,7 @@ Load GoxClient library.
 
 	require("./mtgox").GoxClient;
 
-See `example/node.js` for an example node.js client.
+See `example/node.js` for a simple node.js client using the high level api.
 
 Client Management
 ---
