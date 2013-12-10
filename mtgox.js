@@ -1,12 +1,10 @@
 /*jshint globalstrict: true*/
 /*jshint browser: true*/
 /*!
-QSN MtGox Javascript Websocket Client for HTML5 Browsers.
+QSN MtGox Javascript Websocket Client for Node.js and HTML5 Browsers.
 
 Copyright (c) 2013 Quantitative Signals Network. https://www.quantsig.net
-Distributed under the MIT license.
-
-The MIT License (MIT)
+Distributed under the terms of The MIT License (MIT).
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -35,6 +33,8 @@ function GoxClient(conf) {
  c.conf.currency = c.conf.currency || 'USD';
  c.conf.currencystr = 'BTC' + c.conf.currency;
  c.conf.connstr = c.conf.connstr || 'wss://websocket.mtgox.com/mtgox?Currency=' + c.conf.currency;
+ c.conf.depthurl = c.conf.depthurl || 'http://data.mtgox.com/api/1/' + c.conf.currencystr + '/depth/fetch';
+ c.conf.currencydescurl = c.conf.currencydescurl || 'http://data.mtgox.com/api/1/generic/currency?currency=' + c.conf.currency;
  c.state = {
   depth: { asks: {}, bids: {} },
   ticker: { bid: 0, ask: 0 },
@@ -53,6 +53,13 @@ function GoxClient(conf) {
   nonce: (new Date()).getTime() * 1000,
   on: c.conf.on || {}
  };
+
+ if ( c.conf.minode ) {
+  c.http = require('http');
+  c.btoa = require('btoa');
+  c.crypto = require('crypto');
+  require(c.conf.minode).websocket;
+ }
 
  //Low level methods
  this.getState = function() {
@@ -88,43 +95,78 @@ function GoxClient(conf) {
     c.logerr('sendMessage: error, not connected');
    }
   } else {
-   c.logerr('sendMessage: null message, not sending');
+   c.logerr('sendMessage: error, null message');
   }
  };
 
  if ( c.conf.apikey && c.conf.apisecret ) {
-  this.sendPrivateMessage = function(msg,cb) {
-   var bytes = [], keystr, req, reqstr, reqlist, sha, sign, str;
-   c.state.nonce++;
-   msg.id = c.hasher(c.state.nonce.toString());
-   msg.nonce = c.state.nonce;
+  if ( c.conf.minode ) {
+   this.sendPrivateMessage = function(msg,cb) {
+    var bytes = [], kstr, req, reqstr, reqlist, hmac, sign, str;
+    c.state.nonce++;
+    msg.id = c.hasher(c.state.nonce.toString());
+    msg.nonce = c.state.nonce;
 
-   if ( ! msg.params ) {
-    msg.params = {};
-   }
-   str = JSON.stringify(msg);
+    if ( ! msg.params ) {
+     msg.params = {};
+    }
+    str = JSON.stringify(msg);
 
-   sha = new jsSHA(str,'TEXT');
-   keystr = c.conf.apikey.split('-').join('');
-   sign = sha.getHMAC(c.conf.apisecret, 'B64', 'SHA-512', 'B64');
-   bytes = atob(sign);
-   reqlist = [c.hex2a(keystr), bytes, str];
-   reqstr = btoa(reqlist.join(''));
+    hmac = c.crypto.createHmac('sha512', new Buffer(c.conf.apisecret, 'base64'));
+    hmac.update(str);
+    kstr = c.conf.apikey.split('-').join('');
+    bytes = hmac.digest('binary');
+    reqlist = [c.hex2a(kstr), bytes, str];
+    reqstr = c.btoa(reqlist.join(''));
 
-   req = {
-    op: 'call',
-    id: msg.id,
-    call: reqstr,
-    context: 'mtgox.com'
+    req = {
+     op: 'call',
+     id: msg.id,
+     call: reqstr,
+     context: 'mtgox.com'
+    };
+
+    if ( cb ) {
+     c.state.pending[msg.id] = cb;
+    }
+
+    c.sendMessage(req);
+    return;
    };
+  } else {
+   this.sendPrivateMessage = function(msg,cb) {
+    var bytes = [], kstr, req, reqstr, reqlist, sha, sign, str;
+    c.state.nonce++;
+    msg.id = c.hasher(c.state.nonce.toString());
+    msg.nonce = c.state.nonce;
 
-   if ( cb ) {
-    c.state.pending[msg.id] = cb;
-   }
+    if ( ! msg.params ) {
+     msg.params = {};
+    }
+    str = JSON.stringify(msg);
 
-   c.sendMessage(req);
-   return;
-  };
+    sha = new jsSHA(str,'TEXT');
+    kstr = c.conf.apikey.split('-').join('');
+    sign = sha.getHMAC(c.conf.apisecret, 'B64', 'SHA-512', 'B64');
+    bytes = atob(sign);
+    reqlist = [c.hex2a(kstr), bytes, str];
+    reqstr = btoa(reqlist.join(''));
+
+    req = {
+     op: 'call',
+     id: msg.id,
+     call: reqstr,
+     context: 'mtgox.com'
+    };
+
+    if ( cb ) {
+     c.state.pending[msg.id] = cb;
+    }
+
+    c.sendMessage(req);
+    return;
+   };
+  }
 
   // Extract bytes from HEX API Key
   this.hex2a = function(hex) {
@@ -135,11 +177,19 @@ function GoxClient(conf) {
    return str;
   };
 
-  // Return sha256 hex string
-  this.hasher = function(string) {
-   var sha = new jsSHA(string, 'TEXT');
-   return(sha.getHash('SHA-256','HEX'));
-  };
+  // Hasher required for login
+  if ( c.conf.minode ) {
+   this.hasher = function(str) {
+    var hasher = c.crypto.createHash('sha256');
+    var hash = hasher.update(str, 'utf8');
+    return(hash.digest('hex'));
+   };
+  } else {
+   this.hasher = function(str) {
+    var sha = new jsSHA(str, 'TEXT');
+    return(sha.getHash('SHA-256','HEX'));
+   };
+  }
  }
 
  this.receiveResultMessage = function(message) {
@@ -232,7 +282,7 @@ function GoxClient(conf) {
   this.subscribeDepth = function(cb) {
    c.logger('subscribing to depth');
    c.state.subscribeDepth = true;
-   c.getDepthAjax(function(d) {
+   c.getDepthREST(function(d) {
     c.handleDepth(d);
     if ( cb ) {
      cb(d);
@@ -360,8 +410,19 @@ function GoxClient(conf) {
     currency: m.price_currency,
     timestamp: m.tid
    };
+   // Ignore matching last trade.
+   if (
+     c.state.last.price === trade.price &&
+     c.state.last.volume === trade.volume &&
+     c.state.last.type === trade.type &&
+     c.state.last.timestamp === trade.timestamp
+   ) {
+    return;
+   }
    c.state.last.price = trade.price;
    c.state.last.volume = trade.volume;
+   c.state.last.type = trade.type;
+   c.state.last.timestamp = trade.timestamp;
    c.state.trades.push(trade);
    if ( c.state.trades.length > 1000 ) {
     c.state.trades.shift();
@@ -383,34 +444,39 @@ function GoxClient(conf) {
   };
 
   this.loadCurrencyDescription = function(cb) {
-   c.getCurrencyDescription(function(d) {
-    if ( ! c.state.price_divisor ) {
-     if ( ! c.state.curdesctimeout ) {
-      c.state.curdesctimeout = 30000;
-     } else {
-      if ( c.state.curdesctimeout < 300000 ) {
-       c.state.curdesctimeout = c.state.curdesctimeout + 30000;
-      }
+   var retry = function() {
+    if ( ! c.state.curdesctimeout ) {
+     c.state.curdesctimeout = 30000;
+    } else {
+     if ( c.state.curdesctimeout < 300000 ) {
+      c.state.curdesctimeout = c.state.curdesctimeout + 10000;
      }
-     c.logerr(['failed to get currency description from exchange']);
-     setTimeout(function() {
-      c.loadCurrencyDescription();
-     }, c.state.curdesctimeout);
+    }
+    setTimeout(function() {
+     c.loadCurrencyDescription(cb);
+    }, c.state.curdesctimeout);
+   };
+   c.getCurrencyDescription(function(d) {
+    if ( ! d ) {
+     c.logerr('failed to get currency description from exchange');
+     retry();
+     return;
     }
     if ( cb ) {
+     c.state.curdesctimeout = 30000;
      cb();
     }
    });
   };
  
   this.getCurrencyDescription = function(cb) {
-   c.getCurrencyDescriptionAjax(function(desc) {
-    if ( desc.return && desc.return.decimals ) {
+   c.getCurrencyDescriptionREST(function(desc) {
+    if ( desc && desc.return && desc.return.decimals ) {
      c.state.ticker_channel = desc.return.ticker_channel;
      c.state.depth_channel = desc.return.depth_channel;
      c.state.price_divisor = Math.pow(10, parseInt(desc.return.decimals, 10));
      if ( c.conf.debug ) {
-      c.logger(['price divisor set to ', c.state.price_divisor]);
+      c.logger(['price divisor set to', c.state.price_divisor]);
      }
      if ( cb ) {
       cb(desc);
@@ -535,6 +601,10 @@ function GoxClient(conf) {
   };
 
   this.handleDepth = function(d) {
+   if ( ! d ) {
+    c.logerr('received null depth');
+    return;
+   }
    var bdata = d['return'];
    var alen = bdata.asks.length;
    var blen = bdata.bids.length;
@@ -561,7 +631,7 @@ function GoxClient(conf) {
   this.refreshDepth = function() {
    if ( ! c.state.refreshdepthtimeout && c.conf.refreshdepth ) {
     c.state.refreshdepthtimeout = setTimeout(function() {
-     c.getDepthAjax(function(d) {
+     c.getDepthREST(function(d) {
       delete(c.state.refreshdepthtimeout);
       c.handleDepth(d);
       if ( c.conf.debug ) {
@@ -717,31 +787,52 @@ function GoxClient(conf) {
   } 
  }
 
- // Get market depth via ajax
- this.getDepthAjax = function(cb) {
-  var url = 'http://data.mtgox.com/api/1/' + c.conf.currencystr + '/depth/fetch';
-  if ( c.conf.debug ) {
-   c.logger(['getting depth from', url]);
-  }
-  $.ajax({
-   dataType: 'json',
-   url: url,
-   success: cb
-  });
- };
-
- // Get currency description
- this.getCurrencyDescriptionAjax = function(cb) {
-  var url = 'http://data.mtgox.com/api/1/generic/currency?currency=' + c.conf.currency;
-  if ( c.conf.debug ) {
-   c.logger(['getting currency description from', url]);
-  }
-  $.ajax({
-   dataType: 'json',
-   url: url,
-   success: cb
-  });
- };
+ // Get currency description and market depth via REST
+ if ( c.conf.minode ) {
+  this.getDepthREST = function(cb) {
+   c.http.get(c.conf.depthurl, function(res) {
+    res.on('readable', function() {
+     var dat = c.parseJSON(res.read());
+     cb(dat);
+    });
+   }).on('error', function(e) {
+    c.logerr(["getDepthREST: failed HTTP GET:", e.message]);
+    cb(null);
+   });
+  };
+  this.getCurrencyDescriptionREST = function(cb) {
+   c.http.get(c.conf.currencydescurl, function(res) {
+    res.on('readable', function() {
+     var dat = c.parseJSON(res.read());
+     cb(dat);
+    });
+   }).on('error', function(e) {
+    c.logerr(["getCurrencyDescriptionREST: failed HTTP GET:", e.message]);
+    cb(null);
+   });
+  };
+ } else {
+  this.getDepthREST = function(cb) {
+   if ( c.conf.debug ) {
+    c.logger(['getting depth from', url]);
+   }
+   $.ajax({
+    dataType: 'json',
+    url: c.conf.depthurl,
+    success: cb
+   });
+  };
+  this.getCurrencyDescriptionREST = function(cb) {
+   if ( c.conf.debug ) {
+    c.logger(['getting currency description from', url]);
+   }
+   $.ajax({
+    dataType: 'json',
+    url: c.conf.currencydescurl,
+    success: cb
+   });
+  };
+ }
 
  // Parse inbound JSON safely
  this.parseJSON = function(str) {

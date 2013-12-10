@@ -1,26 +1,31 @@
 goxsocketjs
 ===
 
-QSN MtGox Javascript Websocket Client for HTML5 Browsers.
+QSN MtGox Javascript Websocket Client for Node.js and HTML5 Browsers.
 
 This client provides a high level account, market data, and order abstraction to the MtGox exchange. It implements low latency public and private API methods via native Websocket messaging, using REST only where necessary within HTML5 browsers.
 
-High level methods require jQuery to retrieve data via Ajax for the loading of depth and currency metadata.
+High level methods within the browser require jQuery to retrieve data via Ajax for the loading of depth and currency metadata.
 https://github.com/jquery/jquery
 
-Private methods require a MtGox API key with sufficient privileges (account/trade) as well as the jsSHA library.
-https://github.com/Caligatio/jsSHA.git
+Private methods require a MtGox API key with sufficient privileges (account/trade).
+
+A browser using private methods will require the jsSHA library. https://github.com/Caligatio/jsSHA
+
+Node.js requires the Minode library (https://github.com/billywhizz/minode).
+
+For private methods using Node.js, btoa is also required (installable via npm).
 
 Copyright (c) 2013 Quantitative Signals Network. https://www.quantsig.net
 
-Distributed under the MIT license.
+Distributed under the terms of the MIT license (below).
 
 Low Level Methods
 ===
 
 The low level API provides basic I/O including authenticated access. Setting lowlevel to true will disable all high level methods.
 
-Standard Usage
+Standard Configuration
 ---
 
 	var config = {
@@ -43,6 +48,30 @@ API key and secret are required for private methods.
 		open:  function() { console.log('connected'); },
 		close: function() { console.log('closed'); }
 	};
+
+Node.js Configuration
+---
+
+Install btoa via npm or otherwise.
+
+ npm install btoa;
+
+Clone Minode. It provides a fast and compatible Websocket implementation within Node.js.
+
+ git clone https://github.com/billywhizz/minode.git
+
+Specify Minode location. It will be auto-required by the client.
+
+ config.minode = "./minode";
+
+Load GoxClient library.
+
+ require("./mtgox").GoxClient;
+
+See `example/node.js` for an example node.js client.
+
+Client Management
+---
 
 Create a new instance of the MtGox Client.
 
@@ -303,4 +332,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
-
