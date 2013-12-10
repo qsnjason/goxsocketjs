@@ -8,7 +8,7 @@ This client provides a high level account, market data, and order abstraction to
 High level methods within the browser require jQuery to retrieve data via Ajax for the loading of depth and currency metadata.
 https://github.com/jquery/jquery
 
-Private methods require a MtGox API key with sufficient privileges (account/trade).
+Private methods require a MtGox API key with sufficient privileges.
 
 A browser using private methods will also require the jsSHA library. https://github.com/Caligatio/jsSHA
 
