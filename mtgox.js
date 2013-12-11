@@ -1,4 +1,5 @@
 /*jshint globalstrict: true*/
+/*jshint node: true*/
 /*jshint browser: true*/
 /*!
 QSN MtGox Javascript Websocket Client for Node.js and HTML5 Browsers.
