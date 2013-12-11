@@ -410,15 +410,6 @@ function GoxClient(conf) {
     currency: m.price_currency,
     timestamp: m.tid
    };
-   // Ignore matching last trade.
-   if (
-     c.state.last.price === trade.price &&
-     c.state.last.volume === trade.volume &&
-     c.state.last.type === trade.type &&
-     c.state.last.timestamp === trade.timestamp
-   ) {
-    return;
-   }
    c.state.last.price = trade.price;
    c.state.last.volume = trade.volume;
    c.state.last.type = trade.type;

@@ -226,7 +226,7 @@ MtGox has a minimum order size requirement. The minimum order size can be retrie
 Market data methods
 ---
 
-All summary and query values returned are parsed integers. The MtGox websocket feed automatically subscribes all clients to the depth, ticker, and trades feeds. Client initialization requires a `subscribeDepth()` call in order to load market depth from the exchange via the REST API.
+All summary and query values returned are parsed integers. The MtGox websocket feed automatically subscribes all clients to the depth, ticker, and trades channels. Client initialization requires a `subscribeDepth()` call in order to download market depth from the exchange via the REST API.
 
 Receive `ticker` events.
 
@@ -234,7 +234,7 @@ Receive `ticker` events.
 		console.log('ticker event', summary);
 	});
 
-Receive `trades` events.
+Receive `trades` events. Note that when `subscribeAccount()` is used, there will be duplicate trade messages for this account sent by the exchange.
 
 	gox.on('trade', function(summary,raw) {
 		console.log('trade event', summary);
