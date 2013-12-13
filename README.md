@@ -1,7 +1,7 @@
 goxsocketjs
 ===
 
-*WARNING* MtGox has without notice disabled their websocket feed and forced all their customers to PubNub for market data. PubNub is a purely REST platform, and as such is completely incompatible with our streaming client. Until further notice, this client is now unusable.
+*NOTICE* MtGox appears to have enabled their websocket service again. We will be monitoring the situation, but as of now, our client once again works.
 
 QSN MtGox Javascript Websocket Client for Node.js and HTML5 Browsers.
 
