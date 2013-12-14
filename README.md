@@ -1,8 +1,6 @@
 goxsocketjs
 ===
 
-*NOTICE* MtGox appears to have enabled their websocket service again. We will be monitoring the situation, but as of now, our client once again works.
-
 QSN MtGox Javascript Websocket Client for Node.js and HTML5 Browsers.
 
 This client provides a high level account, market data, and order abstraction to the MtGox exchange. It implements low latency public and private API methods via native Websocket messaging, using REST only where necessary.
