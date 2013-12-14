@@ -1,10 +1,10 @@
 // Load QSN MtGox Client
-var GoxClient, gox;
+var GoxClient, config, gox;
 
 GoxClient = require("../mtgox").GoxClient;
 
 // Prepare config
-var config = {
+config = {
  debug: true,
  minode: './minode',
  // Account access via API key
