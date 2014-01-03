@@ -644,9 +644,14 @@ function GoxClient(conf) {
     c.sendPrivateMessage(
      { call: 'private/idkey' },
      function(res) {
+      if ( c.conf.debug ) {
+       if ( res && res.result ) {
+        c.logger(['received id key',res.result]);
+       }
+      }
       if ( res.result ) {
        c.state.account_channel = res.result;
-       c.sendMessage({ op: 'mtgox.subscribe', key: res.result });
+       c.sendMessage({ op: 'mtgox.subscribe', key: c.state.account_channel });
       } else {
        c.logerr(['did not receive idKey']);
       }
@@ -767,13 +772,24 @@ function GoxClient(conf) {
  if ( c.conf.minode ) {
   this.getDepthREST = function(cb) {
    c.http.get(c.conf.depthurl, function(res) {
-    res.on('readable', function() {
-     var dat = c.parseJSON(res.read());
-     cb(dat);
+    var json = '';
+    res.on('data', function(chunk) {
+     json += chunk;
     });
-   }).on('error', function(e) {
-    c.logerr(["getDepthREST: failed HTTP GET:", e.message]);
-    cb(null);
+    res.on('end', function() {
+     var data;
+     if ( json ) {
+      data = c.parseJSON(json);
+      cb(data);
+     } else {
+      c.logerr(["getDepthREST: HTTP GET returned null"]);
+      cb(null);
+     }
+    });
+    res.on('error', function(e) {
+     c.logerr(["getDepthREST: failed HTTP GET:", e.message]);
+     cb(null);
+    });
    });
   };
   this.getCurrencyDescriptionREST = function(cb) {
