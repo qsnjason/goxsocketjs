@@ -1,7 +1,6 @@
 // Load QSN MtGox Client
-var GoxClient, config, gox;
-
-GoxClient = require("../mtgox").GoxClient;
+var GoxClient = require("../mtgox").GoxClient;
+var config, gox;
 
 // Prepare config
 config = {
