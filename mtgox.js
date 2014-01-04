@@ -794,13 +794,19 @@ function GoxClient(conf) {
   };
   this.getCurrencyDescriptionREST = function(cb) {
    c.http.get(c.conf.currencydescurl, function(res) {
-    res.on('readable', function() {
-     var dat = c.parseJSON(res.read());
-     cb(dat);
+    var json = '';
+    res.on('data', function(chunk) {
+     json += chunk;
     });
-   }).on('error', function(e) {
-    c.logerr(["getCurrencyDescriptionREST: failed HTTP GET:", e.message]);
-    cb(null);
+    res.on('end', function(chunk) {
+     var data;
+     data = c.parseJSON(json);
+     cb(data);
+    });
+    res.on('error', function(e) {
+     c.logerr(["getCurrencyDescriptionREST: failed HTTP GET:", e.message]);
+     cb(null);
+    });
    });
   };
  } else {
