@@ -5,20 +5,15 @@ QSN MtGox Javascript Websocket Client for Node.js and HTML5 Browsers.
 
 This client provides a high level account, market data, and order abstraction to the MtGox exchange. It implements low latency public and private API methods via native Websocket messaging, using REST only where necessary.
 
-High level methods within the browser require jQuery to retrieve data via Ajax for the loading of depth and currency metadata.
-https://github.com/jquery/jquery
+High level methods within the browser require jQuery to load depth data via Ajax. https://github.com/jquery/jquery
 
 Private methods require a MtGox API key with sufficient privileges.
 
 A browser using private methods will also require the jsSHA library. https://github.com/Caligatio/jsSHA
 
-Node.js support requires the Minode library (https://github.com/billywhizz/minode).
+Node.js requires the Minode library. https://github.com/billywhizz/minode
 
-For private methods using Node.js, btoa is also required (installable via npm).
-
-Copyright (c) 2013 Quantitative Signals Network. https://www.quantsig.net
-
-Distributed under the terms of the MIT license (below).
+For private methods using Node.js, btoa is required (npm install btoa).
 
 Low Level Methods
 ===
@@ -32,7 +27,7 @@ Standard Configuration
 		lowlevel: true
 	};
 
-*Optional* Multicurrency market data (available in the low level API). Must be set prior to calling `connect()`.
+*Optional* Multicurrency market data (low level only). Must be set prior to calling `connect()`.
 
 	config.connstr = 'wss://websocket.mtgox.com/mtgox?Currency=USD,EUR,CNY';
 
@@ -89,7 +84,7 @@ To configure the `log` emitter, create and assign a handler, and all log message
 		console.log(log);
 	});
 
-The `close` event executes when the browser closes a socket. Reconnection should utilize a setTimeout to prevent potentially rapid reconnections overwhelming the application or exchange, which may result in a ban.
+The `close` event emits when a websocket connection has been lost. Reconnection should utilize a `setTimeout()` to prevent rapid reconnection attempts from  overwhelming the application or exchange, which may result in a ban.
 
 	gox.on('close', function() {
 		setTimeout(function() {
