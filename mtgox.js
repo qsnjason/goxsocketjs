@@ -651,7 +651,9 @@ function GoxClient(conf) {
       }
       if ( res.result ) {
        c.state.account_channel = res.result;
-       c.sendMessage({ op: 'mtgox.subscribe', key: c.state.account_channel });
+       c.getAccount(function() {
+        c.sendMessage({ op: 'mtgox.subscribe', key: c.state.account_channel });
+       });
       } else {
        c.logerr(['did not receive idKey']);
       }
