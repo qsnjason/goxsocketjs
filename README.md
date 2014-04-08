@@ -3,6 +3,9 @@ goxsocketjs
 
 QSN MtGox Javascript Websocket Client for Node.js and HTML5 Browsers.
 
+This library remains for historical purposes only.
+===
+
 This client provides a high level account, market data, and order abstraction to the MtGox exchange. It implements low latency public and private API methods via native Websocket messaging, using REST only where necessary.
 
 High level methods within the browser require jQuery to load depth data via Ajax. https://github.com/jquery/jquery
